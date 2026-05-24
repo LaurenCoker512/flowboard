@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useOptimistic, useTransition, useCallback } from 'react';
+import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
 import { ProjectDot } from '@/components/ui/ProjectDot';
 import { PRIORITY_COLORS } from '@/lib/design';
@@ -226,7 +227,9 @@ export function BacklogPanel({ initialTasks, projects, onAddTask }: BacklogPanel
                     color="var(--text-tertiary)"
                   />
                   <ProjectDot color={group.projectColor} size={9} />
-                  <span
+                  <Link
+                    href={`/projects/${group.projectId}`}
+                    onClick={(e) => e.stopPropagation()}
                     style={{
                       flex: 1,
                       fontSize: 11.5,
@@ -235,10 +238,11 @@ export function BacklogPanel({ initialTasks, projects, onAddTask }: BacklogPanel
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
                       whiteSpace: 'nowrap',
+                      textDecoration: 'none',
                     }}
                   >
                     {group.projectName}
-                  </span>
+                  </Link>
                   <span
                     style={{
                       fontSize: 10.5,

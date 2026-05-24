@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
 import { PriorityBadge } from '@/components/ui/PriorityBadge';
 import { ProjectDot } from '@/components/ui/ProjectDot';
@@ -120,10 +121,20 @@ export function TaskCard({
       >
         {(showTodayChip || task.promoted === true) && <TodayChip />}
         {!isAppointment && <PriorityBadge priority={task.priority} />}
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+        <Link
+          href={`/projects/${task.projectId}`}
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 4,
+            textDecoration: 'none',
+            color: 'inherit',
+          }}
+        >
           <ProjectDot color={task.projectColor} />
           <span>{task.projectName}</span>
-        </span>
+        </Link>
         {task.date !== null && !isAppointment && (
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
             <Icon name="calendar" size={11} stroke={1.7} />

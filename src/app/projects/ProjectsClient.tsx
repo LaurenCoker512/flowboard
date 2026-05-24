@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import Link from 'next/link';
 import type { ProjectWithCount } from '@/lib/project-actions';
 import {
   createProjectAction,
@@ -376,7 +377,12 @@ export function ProjectsClient({ initialProjects }: { initialProjects: ProjectWi
                     opacity: isPending ? 0.7 : 1,
                   }}
                 >
-                  <span style={{ flex: 1, fontSize: 14, fontWeight: 450 }}>{project.name}</span>
+                  <Link
+                    href={`/projects/${project.id}`}
+                    style={{ flex: 1, fontSize: 14, fontWeight: 450, textDecoration: 'none', color: 'var(--text-primary)' }}
+                  >
+                    {project.name}
+                  </Link>
                   <span
                     style={{ fontSize: 12, color: 'var(--text-tertiary)', minWidth: 52 }}
                   >
@@ -457,9 +463,12 @@ export function ProjectsClient({ initialProjects }: { initialProjects: ProjectWi
                         opacity: isPending ? 0.7 : 0.75,
                       }}
                     >
-                      <span style={{ flex: 1, fontSize: 14, fontWeight: 450, color: 'var(--text-secondary)' }}>
+                      <Link
+                        href={`/projects/${project.id}`}
+                        style={{ flex: 1, fontSize: 14, fontWeight: 450, color: 'var(--text-secondary)', textDecoration: 'none' }}
+                      >
                         {project.name}
-                      </span>
+                      </Link>
                       <span style={{ fontSize: 12, color: 'var(--text-tertiary)', minWidth: 52 }}>
                         {taskLabel(project.taskCount)}
                       </span>
