@@ -4,6 +4,7 @@ import type {
   passwordResetTokens,
   projects,
   tasks,
+  subtasks,
   settings,
 } from '@/db/schema';
 
@@ -18,6 +19,16 @@ export type NewProject = InferInsertModel<typeof projects>;
 
 export type Task = InferSelectModel<typeof tasks>;
 export type NewTask = InferInsertModel<typeof tasks>;
+
+export type Subtask = InferSelectModel<typeof subtasks>;
+export type NewSubtask = InferInsertModel<typeof subtasks>;
+
+export type SubtaskData = {
+  id: string;
+  title: string;
+  isCompleted: boolean;
+  sortOrder: number;
+};
 
 export type Settings = InferSelectModel<typeof settings>;
 export type NewSettings = InferInsertModel<typeof settings>;

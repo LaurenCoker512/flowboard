@@ -24,6 +24,8 @@ function makeRow(overrides: Partial<CsvTaskRow> = {}): CsvTaskRow {
     backlogOrder: null,
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
+    subtaskTitles: '',
+    subtaskCompletedCount: 0,
     ...overrides,
   };
 }
@@ -35,7 +37,7 @@ describe('buildTasksCSV', () => {
     const csv = buildTasksCSV([]);
     const header = csv.split('\n')[0]!;
     expect(header).toBe(
-      'id,title,project_id,priority,status,is_archived,date,start_at,end_at,is_recurring,completion_count,completed_at,description,backlog_order,created_at,updated_at',
+      'id,title,project_id,priority,status,is_archived,date,start_at,end_at,is_recurring,completion_count,completed_at,description,backlog_order,created_at,updated_at,subtask_titles,subtask_completed_count',
     );
   });
 
@@ -73,7 +75,7 @@ describe('buildTasksCSV', () => {
     ]);
     const row = csv.split('\n')[1]!;
     expect(row).toBe(
-      'abc,My task,proj-x,must_do,in_progress,true,2026-05-15,2026-05-15T10:00:00.000Z,2026-05-15T11:00:00.000Z,true,3,2026-05-15T11:00:00.000Z,A description,a0,2026-01-01T00:00:00.000Z,2026-05-01T00:00:00.000Z',
+      'abc,My task,proj-x,must_do,in_progress,true,2026-05-15,2026-05-15T10:00:00.000Z,2026-05-15T11:00:00.000Z,true,3,2026-05-15T11:00:00.000Z,A description,a0,2026-01-01T00:00:00.000Z,2026-05-01T00:00:00.000Z,,0',
     );
   });
 

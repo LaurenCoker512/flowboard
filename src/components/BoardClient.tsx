@@ -27,6 +27,7 @@ import {
   DONE_CAP,
 } from '@/lib/board-utils';
 import { updateTaskStatus, clearDone } from '@/lib/board-actions';
+import { updateSubtask } from '@/lib/subtask-actions';
 import { advanceNewDayTasks } from '@/lib/recurrence-actions';
 import { parseBacklogOpen } from '@/lib/backlog-utils';
 import { Toast } from '@/components/ui/Toast';
@@ -64,6 +65,9 @@ function rowToTask(row: BoardTaskRow): BoardTask {
     isRecurring: row.isRecurring,
     completedAt: row.completedAt,
     recurrenceRule: row.recurrenceRule,
+    recurringMasterId: row.recurringMasterId,
+    showSubtasksInline: row.showSubtasksInline,
+    subtasks: row.subtasks,
   };
 }
 
@@ -72,9 +76,10 @@ type SortableCardProps = {
   muted?: boolean;
   showTodayChip?: boolean;
   onCardClick: (task: BoardTask) => void;
+  onSubtaskToggle: (taskId: string, subtaskId: string, isCompleted: boolean) => void;
 };
 
-function SortableCard({ task, muted, showTodayChip, onCardClick }: SortableCardProps) {
+function SortableCard({ task, muted, showTodayChip, onCardClick, onSubtaskToggle }: SortableCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: task.id,
   });
@@ -92,6 +97,7 @@ function SortableCard({ task, muted, showTodayChip, onCardClick }: SortableCardP
         muted={muted}
         showTodayChip={showTodayChip}
         onClick={() => onCardClick(task)}
+        onSubtaskToggle={(subtaskId, isCompleted) => onSubtaskToggle(task.id, subtaskId, isCompleted)}
       />
     </div>
   );
@@ -256,15 +262,30 @@ export function BoardClient({ initialTasks, initialBacklogTasks, projects, backl
   const [mobileColumn, setMobileColumn] = useState<'appointments' | 'up_next' | 'in_progress' | 'done'>('up_next');
   const isMobile = useIsMobile();
 
+  type OptimisticUpdate =
+    | { type: 'status'; id: string; newStatus: Status }
+    | { type: 'subtask'; taskId: string; subtaskId: string; isCompleted: boolean };
+
   const [optimisticTasks, updateOptimisticTasks] = useOptimistic(
     initialTasks.map(rowToTask),
-    (current: BoardTask[], update: { id: string; newStatus: Status }) => {
+    (current: BoardTask[], update: OptimisticUpdate) => {
+      if (update.type === 'status') {
+        return current.map((task) => {
+          if (task.id !== update.id) return task;
+          return {
+            ...task,
+            status: update.newStatus,
+            completedAt: update.newStatus === 'done' ? new Date() : null,
+          };
+        });
+      }
       return current.map((task) => {
-        if (task.id !== update.id) return task;
+        if (task.id !== update.taskId) return task;
         return {
           ...task,
-          status: update.newStatus,
-          completedAt: update.newStatus === 'done' ? new Date() : null,
+          subtasks: task.subtasks.map((st) =>
+            st.id === update.subtaskId ? { ...st, isCompleted: update.isCompleted } : st,
+          ),
         };
       });
     },
@@ -385,7 +406,7 @@ export function BoardClient({ initialTasks, initialBacklogTasks, projects, backl
     if (draggedTask.status === targetStatus) return;
 
     startTransition(async () => {
-      updateOptimisticTasks({ id: draggedId, newStatus: targetStatus });
+      updateOptimisticTasks({ type: 'status', id: draggedId, newStatus: targetStatus });
       const result = await updateTaskStatus(draggedId, targetStatus as 'up_next' | 'in_progress' | 'done');
       if (targetStatus === 'done' && result.recurringNextDate !== null) {
         setToast({ message: `Completed — next due ${result.recurringNextDate}`, kind: 'info' });
@@ -396,6 +417,13 @@ export function BoardClient({ initialTasks, initialBacklogTasks, projects, backl
   function handleClearDone() {
     startTransition(async () => {
       await clearDone();
+    });
+  }
+
+  function handleSubtaskToggle(taskId: string, subtaskId: string, isCompleted: boolean) {
+    startTransition(async () => {
+      updateOptimisticTasks({ type: 'subtask', taskId, subtaskId, isCompleted });
+      await updateSubtask({ id: subtaskId, isCompleted });
     });
   }
 
@@ -523,6 +551,7 @@ export function BoardClient({ initialTasks, initialBacklogTasks, projects, backl
                       task={task}
                       showTodayChip={task.promoted === true}
                       onCardClick={handleCardClick}
+                      onSubtaskToggle={handleSubtaskToggle}
                     />
                   ))}
                 </BoardColumn>
@@ -541,6 +570,7 @@ export function BoardClient({ initialTasks, initialBacklogTasks, projects, backl
                       key={task.id}
                       task={task}
                       onCardClick={handleCardClick}
+                      onSubtaskToggle={handleSubtaskToggle}
                     />
                   ))}
                 </BoardColumn>
@@ -565,6 +595,7 @@ export function BoardClient({ initialTasks, initialBacklogTasks, projects, backl
                       task={task}
                       muted
                       onCardClick={handleCardClick}
+                      onSubtaskToggle={handleSubtaskToggle}
                     />
                   ))}
                   {columns.doneTotal > DONE_CAP && (
@@ -625,6 +656,7 @@ export function BoardClient({ initialTasks, initialBacklogTasks, projects, backl
                         task={task}
                         showTodayChip={task.promoted === true}
                         onCardClick={handleCardClick}
+                        onSubtaskToggle={handleSubtaskToggle}
                       />
                     ))}
                   </BoardColumn>
@@ -644,6 +676,7 @@ export function BoardClient({ initialTasks, initialBacklogTasks, projects, backl
                         key={task.id}
                         task={task}
                         onCardClick={handleCardClick}
+                        onSubtaskToggle={handleSubtaskToggle}
                       />
                     ))}
                   </BoardColumn>
@@ -669,6 +702,7 @@ export function BoardClient({ initialTasks, initialBacklogTasks, projects, backl
                         task={task}
                         muted
                         onCardClick={handleCardClick}
+                        onSubtaskToggle={handleSubtaskToggle}
                       />
                     ))}
                     {columns.doneTotal > DONE_CAP && (
@@ -731,7 +765,9 @@ export function BoardClient({ initialTasks, initialBacklogTasks, projects, backl
             description: null,
             isRecurring: modalTask.isRecurring,
             recurrenceRule: modalTask.recurrenceRule as RecurrenceRule | null,
-            recurringMasterId: null,
+            recurringMasterId: modalTask.recurringMasterId,
+            showSubtasksInline: modalTask.showSubtasksInline,
+            subtasks: modalTask.subtasks,
           }}
           projects={projects}
           onClose={handleModalClose}

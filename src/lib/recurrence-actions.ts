@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { db } from '@/db';
-import { tasks } from '@/db/schema';
+import { tasks, subtasks } from '@/db/schema';
 import { eq, and, lt, isNotNull, isNull } from 'drizzle-orm';
 import { getNextOccurrence, isRecurrenceComplete } from '@/lib/recurrence';
 import type { RecurrenceRule } from '@/lib/recurrence';
@@ -61,6 +61,13 @@ export async function advanceRecurringTask(taskId: string): Promise<{ archived: 
         updatedAt: now,
       })
       .where(eq(tasks.id, master.id));
+
+    // Reset subtask completion for the new occurrence
+    await db
+      .update(subtasks)
+      .set({ isCompleted: false })
+      .where(eq(subtasks.taskId, master.id));
+
     return { archived: false };
   }
 
@@ -91,6 +98,13 @@ export async function advanceRecurringTask(taskId: string): Promise<{ archived: 
       updatedAt: now,
     })
     .where(eq(tasks.id, taskId));
+
+  // Reset subtask completion for the new occurrence
+  await db
+    .update(subtasks)
+    .set({ isCompleted: false })
+    .where(eq(subtasks.taskId, taskId));
+
   return { archived: false };
 }
 

@@ -1,3 +1,5 @@
+import type { SubtaskData } from '@/types';
+
 export type Priority = 'must_do' | 'can_wait' | 'fun';
 export type Status = 'backlog' | 'up_next' | 'in_progress' | 'done';
 
@@ -16,6 +18,9 @@ export type BoardTask = {
   isRecurring: boolean;
   completedAt: Date | null;
   recurrenceRule: unknown;
+  recurringMasterId: string | null;
+  showSubtasksInline: boolean;
+  subtasks: SubtaskData[];
   promoted?: boolean;
 };
 

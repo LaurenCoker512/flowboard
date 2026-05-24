@@ -12,9 +12,12 @@ import {
   createExceptionRecord,
   updateAllFutureOccurrences,
 } from '@/lib/task-actions';
+import { updateShowSubtasksInline } from '@/lib/subtask-actions';
 import { getFrequencyLabel } from '@/lib/recurrence';
 import { resolveDefaultProject, isTaskDirty, type TaskFormValues } from '@/lib/task-defaults';
+import { SubtaskSection } from '@/components/SubtaskSection';
 import type { RecurrenceRule, DayOfWeek } from '@/lib/recurrence';
+import type { SubtaskData } from '@/types';
 
 const LOCAL_STORAGE_KEY = 'flowboard:lastProject';
 
@@ -340,6 +343,8 @@ interface TaskModalProps {
     isRecurring?: boolean;
     recurrenceRule?: RecurrenceRule | null;
     recurringMasterId?: string | null;
+    showSubtasksInline?: boolean;
+    subtasks?: SubtaskData[];
   };
   projects: Array<{ id: string; name: string; color: string }>;
   defaultProjectId?: string;
@@ -367,6 +372,9 @@ export function TaskModal({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showDescription, setShowDescription] = useState(
     mode === 'edit' && Boolean(task?.description),
+  );
+  const [showSubtasksInline, setShowSubtasksInline] = useState(
+    task?.showSubtasksInline ?? false,
   );
 
   const [resolvedProjectId, setResolvedProjectId] = useState<string>(
@@ -597,6 +605,7 @@ export function TaskModal({
             description: formValues.description || null,
             isRecurring,
             recurrenceRule: currentRule,
+            showSubtasksInline,
           });
         }
 
@@ -988,6 +997,22 @@ export function TaskModal({
                 Add description
               </button>
             )}
+
+            {mode === 'edit' && task !== undefined && (
+              <div
+                style={{
+                  borderTop: '1px solid var(--border)',
+                  paddingTop: 12,
+                  marginTop: 4,
+                }}
+              >
+                <SubtaskSection
+                  taskId={task.id}
+                  initialSubtasks={task.subtasks ?? []}
+                  modalIsPending={isPending}
+                />
+              </div>
+            )}
           </div>
 
           {/* Sidebar */}
@@ -1194,6 +1219,50 @@ export function TaskModal({
                   isPending={isPending}
                 />
               )}
+            </div>
+
+            {/* Show on card */}
+            <div>
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  cursor: 'pointer',
+                }}
+              >
+                <span className="fb-label">Show on card</span>
+                <input
+                  type="checkbox"
+                  checked={showSubtasksInline}
+                  disabled={isPending}
+                  onChange={(e) => {
+                    const value = e.target.checked;
+                    setShowSubtasksInline(value);
+                    if (mode === 'edit' && task !== undefined) {
+                      startTransition(async () => {
+                        await updateShowSubtasksInline({
+                          taskId: task.id,
+                          value,
+                          masterId: task.recurringMasterId ?? null,
+                        });
+                      });
+                    }
+                  }}
+                  aria-label="Show subtasks on board card"
+                  style={{ width: 16, height: 16, cursor: 'pointer' }}
+                />
+              </label>
+              <p
+                style={{
+                  margin: '3px 0 0',
+                  fontSize: 11,
+                  color: 'var(--text-tertiary)',
+                  lineHeight: 1.4,
+                }}
+              >
+                Expand subtask checklist on the board card.
+              </p>
             </div>
           </div>
         </div>

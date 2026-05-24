@@ -31,6 +31,7 @@ export type CreateTaskInput = {
   description?: string | null;
   isRecurring?: boolean;
   recurrenceRule?: RecurrenceRule | null;
+  showSubtasksInline?: boolean;
 };
 
 export async function createTaskAction(
@@ -50,6 +51,7 @@ export async function createTaskAction(
     description: input.description ?? null,
     isRecurring: input.isRecurring ?? false,
     recurrenceRule: (input.isRecurring ?? false) ? (input.recurrenceRule ?? null) : null,
+    showSubtasksInline: input.showSubtasksInline ?? false,
   });
 
   revalidateAll();

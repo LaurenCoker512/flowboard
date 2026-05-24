@@ -2,8 +2,8 @@
 
 import { revalidatePath } from 'next/cache';
 import { db } from '@/db';
-import { projects, tasks, settings } from '@/db/schema';
-import { and, eq, lt } from 'drizzle-orm';
+import { projects, tasks, subtasks, settings } from '@/db/schema';
+import { and, eq, lt, asc } from 'drizzle-orm';
 import { buildTasksCSV, computeClearThreshold } from '@/lib/settings-utils';
 import type { Settings } from '@/types';
 
@@ -43,27 +43,57 @@ export async function updateSettings(input: SettingsUpdate): Promise<{ error: st
 }
 
 export async function exportDataJSON(): Promise<ExportData> {
-  const [allTasks, allProjects] = await Promise.all([
+  const [allTasks, allProjects, allSubtasks] = await Promise.all([
     db.select().from(tasks),
     db.select().from(projects),
+    db.select().from(subtasks).orderBy(asc(subtasks.sortOrder)),
   ]);
+
+  const subtasksByTaskId = new Map<string, typeof allSubtasks>();
+  for (const st of allSubtasks) {
+    const existing = subtasksByTaskId.get(st.taskId) ?? [];
+    existing.push(st);
+    subtasksByTaskId.set(st.taskId, existing);
+  }
+
+  const tasksWithSubtasks = allTasks.map((t) => ({
+    ...t,
+    subtasks: subtasksByTaskId.get(t.id) ?? [],
+  }));
+
   return {
     exportedAt: new Date().toISOString(),
-    tasks: allTasks,
+    tasks: tasksWithSubtasks,
     projects: allProjects,
   };
 }
 
 export async function exportDataCSV(): Promise<string> {
-  const allTasks = await db.select().from(tasks);
-  const csvRows = allTasks.map((t) => ({
-    ...t,
-    startAt: t.startAt?.toISOString() ?? null,
-    endAt: t.endAt?.toISOString() ?? null,
-    completedAt: t.completedAt?.toISOString() ?? null,
-    createdAt: t.createdAt.toISOString(),
-    updatedAt: t.updatedAt.toISOString(),
-  }));
+  const [allTasks, allSubtasks] = await Promise.all([
+    db.select().from(tasks),
+    db.select().from(subtasks).orderBy(asc(subtasks.sortOrder)),
+  ]);
+
+  const subtasksByTaskId = new Map<string, typeof allSubtasks>();
+  for (const st of allSubtasks) {
+    const existing = subtasksByTaskId.get(st.taskId) ?? [];
+    existing.push(st);
+    subtasksByTaskId.set(st.taskId, existing);
+  }
+
+  const csvRows = allTasks.map((t) => {
+    const taskSubtasks = subtasksByTaskId.get(t.id) ?? [];
+    return {
+      ...t,
+      startAt: t.startAt?.toISOString() ?? null,
+      endAt: t.endAt?.toISOString() ?? null,
+      completedAt: t.completedAt?.toISOString() ?? null,
+      createdAt: t.createdAt.toISOString(),
+      updatedAt: t.updatedAt.toISOString(),
+      subtaskTitles: taskSubtasks.map((st) => st.title).join('; '),
+      subtaskCompletedCount: taskSubtasks.filter((st) => st.isCompleted).length,
+    };
+  });
   return buildTasksCSV(csvRows);
 }
 

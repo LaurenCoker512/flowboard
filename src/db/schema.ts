@@ -7,6 +7,7 @@ import {
   timestamp,
   date,
   integer,
+  real,
   jsonb,
   pgEnum,
   index,
@@ -79,6 +80,7 @@ export const tasks = pgTable(
     recurringOccurrenceDate: date('recurring_occurrence_date'),
     backlogOrder: varchar('backlog_order', { length: 255 }),
     description: text('description'),
+    showSubtasksInline: boolean('show_subtasks_inline').notNull().default(false),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -90,6 +92,19 @@ export const tasks = pgTable(
   ],
 );
 
+
+export const subtasks = pgTable(
+  'subtasks',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    taskId: uuid('task_id').notNull().references(() => tasks.id, { onDelete: 'cascade' }),
+    title: varchar('title', { length: 255 }).notNull(),
+    isCompleted: boolean('is_completed').notNull().default(false),
+    sortOrder: real('sort_order').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index('idx_subtasks_task_id').on(table.taskId)],
+);
 
 export const settings = pgTable('settings', {
   id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),

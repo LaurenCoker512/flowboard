@@ -15,6 +15,8 @@ export type CsvTaskRow = {
   backlogOrder: string | null;
   createdAt: string;
   updatedAt: string;
+  subtaskTitles: string;
+  subtaskCompletedCount: number;
 };
 
 const CSV_HEADERS = [
@@ -34,6 +36,8 @@ const CSV_HEADERS = [
   'backlog_order',
   'created_at',
   'updated_at',
+  'subtask_titles',
+  'subtask_completed_count',
 ];
 
 function csvEscape(value: string | number | boolean | null | undefined): string {
@@ -62,6 +66,8 @@ export function buildTasksCSV(rows: CsvTaskRow[]): string {
       t.backlogOrder ?? '',
       t.createdAt,
       t.updatedAt,
+      t.subtaskTitles,
+      t.subtaskCompletedCount,
     ]
       .map(csvEscape)
       .join(','),

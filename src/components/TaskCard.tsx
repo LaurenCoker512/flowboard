@@ -11,6 +11,7 @@ import { PRIORITY_COLORS } from '@/lib/design';
 import { getFrequencyLabel } from '@/lib/recurrence';
 import type { BoardTask } from '@/lib/board-utils';
 import type { RecurrenceRule } from '@/lib/recurrence';
+import type { SubtaskData } from '@/types';
 
 type TaskCardProps = {
   task: BoardTask;
@@ -18,6 +19,7 @@ type TaskCardProps = {
   muted?: boolean;
   showTodayChip?: boolean;
   onClick?: () => void;
+  onSubtaskToggle?: (subtaskId: string, isCompleted: boolean) => void;
 };
 
 function formatTime(date: Date): string {
@@ -35,9 +37,16 @@ export function TaskCard({
   muted = false,
   showTodayChip = false,
   onClick,
+  onSubtaskToggle,
 }: TaskCardProps) {
   const priorityColor = PRIORITY_COLORS[task.priority].color;
   const isAppointment = task.startAt !== null;
+
+  const subtasks = task.subtasks ?? [];
+  const subtaskCount = subtasks.length;
+  const completedCount = subtasks.filter((st) => st.isCompleted).length;
+  const allComplete = subtaskCount > 0 && completedCount === subtaskCount;
+  const showInlineList = task.showSubtasksInline && subtaskCount > 0 && !allComplete;
 
   return (
     <div
@@ -110,6 +119,52 @@ export function TaskCard({
         {task.title}
       </div>
 
+      {showInlineList && (
+        <div
+          style={{ marginTop: 8 }}
+          onClick={(e) => e.stopPropagation()}
+          role="group"
+          aria-label="Subtasks"
+        >
+          {subtasks.map((subtask: SubtaskData) => (
+            <label
+              key={subtask.id}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '2px 0',
+                cursor: 'pointer',
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={subtask.isCompleted}
+                onChange={(e) => {
+                  e.stopPropagation();
+                  onSubtaskToggle?.(subtask.id, e.target.checked);
+                }}
+                onClick={(e) => e.stopPropagation()}
+                style={{ width: 14, height: 14, flexShrink: 0 }}
+                aria-label={subtask.title}
+              />
+              <span
+                style={{
+                  fontSize: 13,
+                  color: subtask.isCompleted ? 'var(--text-tertiary)' : 'var(--text-secondary)',
+                  textDecoration: subtask.isCompleted ? 'line-through' : 'none',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {subtask.title}
+              </span>
+            </label>
+          ))}
+        </div>
+      )}
+
       <div
         style={{
           display: 'flex',
@@ -151,6 +206,18 @@ export function TaskCard({
                 : 'Recurring'
             }
           />
+        )}
+        {subtaskCount > 0 && (
+          <span
+            style={{
+              fontSize: 11,
+              color: allComplete ? 'var(--text-tertiary)' : 'var(--text-secondary)',
+              marginLeft: 'auto',
+            }}
+            aria-label={`${completedCount} of ${subtaskCount} subtasks complete`}
+          >
+            {completedCount} / {subtaskCount}
+          </span>
         )}
       </div>
     </div>

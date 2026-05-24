@@ -27,6 +27,9 @@ function rowToTask(row: BoardTaskRow): BoardTask {
     isRecurring: row.isRecurring,
     completedAt: row.completedAt,
     recurrenceRule: row.recurrenceRule,
+    recurringMasterId: row.recurringMasterId,
+    showSubtasksInline: row.showSubtasksInline,
+    subtasks: row.subtasks,
   };
 }
 

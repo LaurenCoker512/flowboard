@@ -2,11 +2,12 @@
 
 import { revalidatePath } from 'next/cache';
 import { db } from '@/db';
-import { projects, tasks } from '@/db/schema';
-import { eq, and, isNull, isNotNull } from 'drizzle-orm';
+import { projects, tasks, subtasks } from '@/db/schema';
+import { eq, and, isNull, isNotNull, asc } from 'drizzle-orm';
 import { getNextOccurrence } from '@/lib/recurrence';
 import { advanceRecurringTask } from '@/lib/recurrence-actions';
 import type { RecurrenceRule } from '@/lib/recurrence';
+import type { SubtaskData } from '@/types';
 
 export type BoardTaskRow = {
   id: string;
@@ -23,6 +24,9 @@ export type BoardTaskRow = {
   isRecurring: boolean;
   completedAt: Date | null;
   recurrenceRule: unknown;
+  recurringMasterId: string | null;
+  showSubtasksInline: boolean;
+  subtasks: SubtaskData[];
 };
 
 const BOARD_PATHS = ['/board', '/tasks', '/projects'] as const;
@@ -34,7 +38,7 @@ function revalidateAll(): void {
 }
 
 export async function getBoardTasks(): Promise<BoardTaskRow[]> {
-  const rows = await db
+  const taskRows = await db
     .select({
       id: tasks.id,
       title: tasks.title,
@@ -50,12 +54,39 @@ export async function getBoardTasks(): Promise<BoardTaskRow[]> {
       isRecurring: tasks.isRecurring,
       completedAt: tasks.completedAt,
       recurrenceRule: tasks.recurrenceRule,
+      recurringMasterId: tasks.recurringMasterId,
+      showSubtasksInline: tasks.showSubtasksInline,
     })
     .from(tasks)
     .innerJoin(projects, eq(tasks.projectId, projects.id))
     .where(eq(tasks.isArchived, false));
 
-  return rows;
+  if (taskRows.length === 0) return [];
+
+  // Fetch all subtasks for non-archived tasks in a single query
+  const subtaskRows = await db
+    .select({
+      id: subtasks.id,
+      taskId: subtasks.taskId,
+      title: subtasks.title,
+      isCompleted: subtasks.isCompleted,
+      sortOrder: subtasks.sortOrder,
+    })
+    .from(subtasks)
+    .innerJoin(tasks, and(eq(subtasks.taskId, tasks.id), eq(tasks.isArchived, false)))
+    .orderBy(asc(subtasks.sortOrder));
+
+  const subtasksByTaskId = new Map<string, SubtaskData[]>();
+  for (const row of subtaskRows) {
+    const existing = subtasksByTaskId.get(row.taskId) ?? [];
+    existing.push({ id: row.id, title: row.title, isCompleted: row.isCompleted, sortOrder: row.sortOrder });
+    subtasksByTaskId.set(row.taskId, existing);
+  }
+
+  return taskRows.map((row) => ({
+    ...row,
+    subtasks: subtasksByTaskId.get(row.id) ?? [],
+  }));
 }
 
 export async function updateTaskStatus(
