@@ -12,6 +12,8 @@ type FilterBarProps = {
   onClear: () => void;
   onToggleSidebar?: () => void;
   sidebarOpen?: boolean;
+  searchQuery?: string;
+  onSearchChange?: (query: string) => void;
 };
 
 const PRIORITY_CHIPS: Array<{ value: Priority; label: string; color: string }> = [
@@ -24,7 +26,16 @@ function toggleArrayItem<T>(arr: T[], item: T): T[] {
   return arr.includes(item) ? arr.filter((existing) => existing !== item) : [...arr, item];
 }
 
-export function FilterBar({ filters, projects, onChange, onClear, onToggleSidebar, sidebarOpen }: FilterBarProps) {
+export function FilterBar({
+  filters,
+  projects,
+  onChange,
+  onClear,
+  onToggleSidebar,
+  sidebarOpen,
+  searchQuery,
+  onSearchChange,
+}: FilterBarProps) {
   const isRecurringActive = filters.recurringOnly;
 
   function handlePriorityToggle(priority: Priority) {
@@ -71,6 +82,58 @@ export function FilterBar({ filters, projects, onChange, onClear, onToggleSideba
           Show
         </span>
       </div>
+
+      {onSearchChange !== undefined && (
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+          <Icon
+            name="search"
+            size={12}
+            stroke={1.7}
+            color="var(--text-tertiary)"
+          />
+          <input
+            type="text"
+            placeholder="Search tasks…"
+            value={searchQuery ?? ''}
+            onChange={(e) => onSearchChange(e.target.value)}
+            style={{
+              paddingLeft: 20,
+              paddingRight: searchQuery && searchQuery.length > 0 ? 22 : 8,
+              paddingTop: 5,
+              paddingBottom: 5,
+              fontSize: 12,
+              borderRadius: 6,
+              border: '1px solid var(--border)',
+              background: 'var(--bg-surface)',
+              color: 'var(--text-primary)',
+              width: 160,
+              fontFamily: 'var(--font-sans)',
+              outline: 'none',
+              marginLeft: 4,
+            }}
+          />
+          {searchQuery !== undefined && searchQuery.length > 0 && (
+            <button
+              type="button"
+              onClick={() => onSearchChange('')}
+              aria-label="Clear search"
+              style={{
+                position: 'absolute',
+                right: 6,
+                display: 'flex',
+                alignItems: 'center',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                color: 'var(--text-tertiary)',
+                padding: 0,
+              }}
+            >
+              <Icon name="x" size={11} stroke={1.8} />
+            </button>
+          )}
+        </div>
+      )}
 
       <div style={{ display: 'flex', gap: 6 }}>
         {PRIORITY_CHIPS.map((chip) => (
@@ -133,7 +196,7 @@ export function FilterBar({ filters, projects, onChange, onClear, onToggleSideba
       </button>
 
       <div style={{ flex: 1 }} />
-      {hasActiveFilters(filters) && (
+      {(hasActiveFilters(filters) || (searchQuery !== undefined && searchQuery.trim().length > 0)) && (
         <button
           type="button"
           onClick={onClear}
