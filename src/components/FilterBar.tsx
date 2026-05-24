@@ -10,6 +10,8 @@ type FilterBarProps = {
   projects: Array<{ id: string; name: string; color: string }>;
   onChange: (filters: BoardFilters) => void;
   onClear: () => void;
+  onToggleSidebar?: () => void;
+  sidebarOpen?: boolean;
 };
 
 const PRIORITY_CHIPS: Array<{ value: Priority; label: string; color: string }> = [
@@ -22,7 +24,7 @@ function toggleArrayItem<T>(arr: T[], item: T): T[] {
   return arr.includes(item) ? arr.filter((existing) => existing !== item) : [...arr, item];
 }
 
-export function FilterBar({ filters, projects, onChange, onClear }: FilterBarProps) {
+export function FilterBar({ filters, projects, onChange, onClear, onToggleSidebar, sidebarOpen }: FilterBarProps) {
   const isRecurringActive = filters.recurringOnly;
 
   function handlePriorityToggle(priority: Priority) {
@@ -130,12 +132,12 @@ export function FilterBar({ filters, projects, onChange, onClear }: FilterBarPro
         Recurring only
       </button>
 
+      <div style={{ flex: 1 }} />
       {hasActiveFilters(filters) && (
         <button
           type="button"
           onClick={onClear}
           style={{
-            marginLeft: 'auto',
             fontSize: 12,
             color: 'var(--accent)',
             cursor: 'pointer',
@@ -146,6 +148,27 @@ export function FilterBar({ filters, projects, onChange, onClear }: FilterBarPro
           }}
         >
           Clear filters
+        </button>
+      )}
+      {onToggleSidebar !== undefined && (
+        <button
+          type="button"
+          onClick={onToggleSidebar}
+          aria-label={sidebarOpen === true ? 'Hide backlog panel' : 'Show backlog panel'}
+          title={sidebarOpen === true ? 'Hide Later panel' : 'Show Later panel'}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            padding: '5px 7px',
+            borderRadius: 6,
+            background: sidebarOpen === true ? 'var(--bg-sunken)' : 'transparent',
+            border: '1px solid var(--border)',
+            color: sidebarOpen === true ? 'var(--text-primary)' : 'var(--text-secondary)',
+            cursor: 'pointer',
+            fontFamily: 'var(--font-sans)',
+          }}
+        >
+          <Icon name="sidebar" size={14} />
         </button>
       )}
     </div>

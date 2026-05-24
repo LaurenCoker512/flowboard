@@ -3,6 +3,7 @@ import { auth } from '@/auth';
 import { NavBar } from '@/components/NavBar';
 import { BoardClient } from '@/components/BoardClient';
 import { getBoardTasks } from '@/lib/board-actions';
+import { getBacklogTasks } from '@/lib/backlog-actions';
 import { getActiveProjects } from '@/lib/task-actions';
 import { getTodayString } from '@/lib/board-utils';
 import type { BoardTask } from '@/lib/board-utils';
@@ -34,7 +35,11 @@ export default async function BoardPage() {
     redirect('/login');
   }
 
-  const [taskRows, projects] = await Promise.all([getBoardTasks(), getActiveProjects()]);
+  const [taskRows, backlogTaskRows, projects] = await Promise.all([
+    getBoardTasks(),
+    getBacklogTasks(),
+    getActiveProjects(),
+  ]);
 
   const today = getTodayString();
   const allTasks = taskRows.map(rowToTask);
@@ -55,6 +60,7 @@ export default async function BoardPage() {
       <NavBar />
       <BoardClient
         initialTasks={taskRows}
+        initialBacklogTasks={backlogTaskRows}
         projects={projects}
         backlogCount={backlogCount}
       />

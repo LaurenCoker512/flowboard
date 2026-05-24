@@ -16,6 +16,7 @@ import { TaskCard } from '@/components/TaskCard';
 import { FilterBar } from '@/components/FilterBar';
 import { TodayBanner } from '@/components/TodayBanner';
 import { TaskModal } from '@/components/TaskModal';
+import { BacklogPanel } from '@/components/BacklogPanel';
 import { EmptyIllustration } from '@/components/ui/EmptyIllustration';
 import {
   buildBoardColumns,
@@ -26,15 +27,19 @@ import {
   DONE_CAP,
 } from '@/lib/board-utils';
 import { updateTaskStatus, clearDone } from '@/lib/board-actions';
+import { parseBacklogOpen } from '@/lib/backlog-utils';
 import type { BoardTask, BoardFilters, Status } from '@/lib/board-utils';
 import type { BoardTaskRow } from '@/lib/board-actions';
+import type { BacklogTaskRow } from '@/lib/backlog-actions';
 
 const FILTERS_STORAGE_KEY = 'flowboard:filters';
+const BACKLOG_OPEN_KEY = 'flowboard:backlogOpen';
 
 type Project = { id: string; name: string; color: string };
 
 type BoardClientProps = {
   initialTasks: BoardTaskRow[];
+  initialBacklogTasks: BacklogTaskRow[];
   projects: Project[];
   backlogCount: number;
 };
@@ -225,7 +230,7 @@ function getColumnStatus(columnId: string): Status | null {
   return null;
 }
 
-export function BoardClient({ initialTasks, projects, backlogCount }: BoardClientProps) {
+export function BoardClient({ initialTasks, initialBacklogTasks, projects, backlogCount }: BoardClientProps) {
   const [, startTransition] = useTransition();
   const [filters, setFilters] = useState<BoardFilters>({
     priorities: [],
@@ -234,8 +239,12 @@ export function BoardClient({ initialTasks, projects, backlogCount }: BoardClien
   });
   const [filtersLoaded, setFiltersLoaded] = useState(false);
   const [modalTask, setModalTask] = useState<BoardTask | null>(null);
-  const [showNewTaskModal, setShowNewTaskModal] = useState(false);
+  const [newTaskDefaults, setNewTaskDefaults] = useState<{
+    status?: 'backlog' | 'up_next' | 'in_progress' | 'done';
+    projectId?: string;
+  } | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [backlogOpen, setBacklogOpen] = useState(true);
 
   const [optimisticTasks, updateOptimisticTasks] = useOptimistic(
     initialTasks.map(rowToTask),
@@ -253,10 +262,16 @@ export function BoardClient({ initialTasks, projects, backlogCount }: BoardClien
 
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(FILTERS_STORAGE_KEY);
-      setFilters(parseFilters(raw));
+      const rawFilters = localStorage.getItem(FILTERS_STORAGE_KEY);
+      setFilters(parseFilters(rawFilters));
     } catch {
       setFilters(parseFilters(null));
+    }
+    try {
+      const rawOpen = localStorage.getItem(BACKLOG_OPEN_KEY);
+      setBacklogOpen(parseBacklogOpen(rawOpen));
+    } catch {
+      setBacklogOpen(true);
     }
     setFiltersLoaded(true);
   }, []);
@@ -268,6 +283,22 @@ export function BoardClient({ initialTasks, projects, backlogCount }: BoardClien
     } catch {
       // localStorage may be unavailable
     }
+  }, []);
+
+  const handleToggleBacklog = useCallback(() => {
+    setBacklogOpen((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(BACKLOG_OPEN_KEY, String(next));
+      } catch {
+        // localStorage may be unavailable
+      }
+      return next;
+    });
+  }, []);
+
+  const handleAddBacklogTask = useCallback((projectId?: string) => {
+    setNewTaskDefaults({ status: 'backlog', projectId });
   }, []);
 
   const handleClearFilters = useCallback(() => {
@@ -333,7 +364,7 @@ export function BoardClient({ initialTasks, projects, backlogCount }: BoardClien
 
   function handleModalClose() {
     setModalTask(null);
-    setShowNewTaskModal(false);
+    setNewTaskDefaults(null);
   }
 
   const upNextIds = columns.upNext.map((task) => task.id);
@@ -347,6 +378,8 @@ export function BoardClient({ initialTasks, projects, backlogCount }: BoardClien
         projects={projects}
         onChange={handleFiltersChange}
         onClear={handleClearFilters}
+        onToggleSidebar={handleToggleBacklog}
+        sidebarOpen={backlogOpen}
       />
       <TodayBanner
         appointmentCount={columns.appointments.length}
@@ -354,120 +387,131 @@ export function BoardClient({ initialTasks, projects, backlogCount }: BoardClien
         backlogCount={backlogCount}
       />
 
-      <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-        <div
-          style={{
-            flex: 1,
-            minHeight: 0,
-            display: 'flex',
-            padding: '14px 18px 18px 22px',
-            gap: 12,
-            overflowY: 'hidden',
-          }}
-        >
-          <div style={{ display: 'flex', gap: 14, flex: 1, minHeight: 0 }}>
-            <BoardColumn
-              title="Appointments"
-              count={columns.appointments.length}
-              accentColor="var(--p-must)"
-              isEmpty={columns.appointments.length === 0}
-              emptyMessage="No appointments today."
-            >
-              {columns.appointments.map((task) => (
-                <TaskCard
-                  key={task.id}
-                  task={task}
-                  onClick={() => handleCardClick(task)}
-                />
-              ))}
-            </BoardColumn>
-
-            <SortableContext items={upNextIds} strategy={verticalListSortingStrategy} id="up_next">
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', overflow: 'hidden' }}>
+        <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+          <div
+            style={{
+              flex: 1,
+              minHeight: 0,
+              display: 'flex',
+              padding: '14px 18px 18px 22px',
+              gap: 12,
+              overflow: 'hidden',
+            }}
+          >
+            <div style={{ display: 'flex', gap: 14, flex: 1, minHeight: 0 }}>
               <BoardColumn
-                title="What's next"
-                count={columns.upNext.length}
-                accentColor="var(--accent)"
-                isEmpty={columns.upNext.length === 0}
-                emptyMessage="Nothing up next. Enjoy the calm."
+                title="Appointments"
+                count={columns.appointments.length}
+                accentColor="var(--p-must)"
+                isEmpty={columns.appointments.length === 0}
+                emptyMessage="No appointments today."
               >
-                {columns.upNext.map((task) => (
-                  <SortableCard
+                {columns.appointments.map((task) => (
+                  <TaskCard
                     key={task.id}
                     task={task}
-                    showTodayChip={task.promoted === true}
-                    onCardClick={handleCardClick}
+                    onClick={() => handleCardClick(task)}
                   />
                 ))}
               </BoardColumn>
-            </SortableContext>
 
-            <SortableContext items={inProgressIds} strategy={verticalListSortingStrategy} id="in_progress">
-              <BoardColumn
-                title="In progress"
-                count={columns.inProgress.length}
-                accentColor="var(--p-fun)"
-                isEmpty={columns.inProgress.length === 0}
-                emptyMessage="Nothing in progress yet."
-              >
-                {columns.inProgress.map((task) => (
-                  <SortableCard
-                    key={task.id}
-                    task={task}
-                    onCardClick={handleCardClick}
-                  />
-                ))}
-              </BoardColumn>
-            </SortableContext>
+              <SortableContext items={upNextIds} strategy={verticalListSortingStrategy} id="up_next">
+                <BoardColumn
+                  title="What's next"
+                  count={columns.upNext.length}
+                  accentColor="var(--accent)"
+                  isEmpty={columns.upNext.length === 0}
+                  emptyMessage="Nothing up next. Enjoy the calm."
+                >
+                  {columns.upNext.map((task) => (
+                    <SortableCard
+                      key={task.id}
+                      task={task}
+                      showTodayChip={task.promoted === true}
+                      onCardClick={handleCardClick}
+                    />
+                  ))}
+                </BoardColumn>
+              </SortableContext>
 
-            <SortableContext items={doneIds} strategy={verticalListSortingStrategy} id="done">
-              <BoardColumn
-                title="Done"
-                count={columns.done.length}
-                accentColor="var(--text-tertiary)"
-                action={
-                  columns.done.length > 0
-                    ? { label: 'Clear done', onClick: handleClearDone }
-                    : undefined
-                }
-                isEmpty={columns.done.length === 0}
-                emptyMessage="Nothing done yet today."
-              >
-                {columns.done.map((task) => (
-                  <SortableCard
-                    key={task.id}
-                    task={task}
-                    muted
-                    onCardClick={handleCardClick}
-                  />
-                ))}
-                {columns.doneTotal > DONE_CAP && (
-                  <div
-                    style={{
-                      textAlign: 'center',
-                      fontSize: 12,
-                      color: 'var(--text-tertiary)',
-                      padding: '6px 0',
-                    }}
-                  >
-                    +{columns.doneTotal - DONE_CAP} more
-                  </div>
-                )}
-              </BoardColumn>
-            </SortableContext>
+              <SortableContext items={inProgressIds} strategy={verticalListSortingStrategy} id="in_progress">
+                <BoardColumn
+                  title="In progress"
+                  count={columns.inProgress.length}
+                  accentColor="var(--p-fun)"
+                  isEmpty={columns.inProgress.length === 0}
+                  emptyMessage="Nothing in progress yet."
+                >
+                  {columns.inProgress.map((task) => (
+                    <SortableCard
+                      key={task.id}
+                      task={task}
+                      onCardClick={handleCardClick}
+                    />
+                  ))}
+                </BoardColumn>
+              </SortableContext>
+
+              <SortableContext items={doneIds} strategy={verticalListSortingStrategy} id="done">
+                <BoardColumn
+                  title="Done"
+                  count={columns.done.length}
+                  accentColor="var(--text-tertiary)"
+                  action={
+                    columns.done.length > 0
+                      ? { label: 'Clear done', onClick: handleClearDone }
+                      : undefined
+                  }
+                  isEmpty={columns.done.length === 0}
+                  emptyMessage="Nothing done yet today."
+                >
+                  {columns.done.map((task) => (
+                    <SortableCard
+                      key={task.id}
+                      task={task}
+                      muted
+                      onCardClick={handleCardClick}
+                    />
+                  ))}
+                  {columns.doneTotal > DONE_CAP && (
+                    <div
+                      style={{
+                        textAlign: 'center',
+                        fontSize: 12,
+                        color: 'var(--text-tertiary)',
+                        padding: '6px 0',
+                      }}
+                    >
+                      +{columns.doneTotal - DONE_CAP} more
+                    </div>
+                  )}
+                </BoardColumn>
+              </SortableContext>
+            </div>
           </div>
-        </div>
 
-        <DragOverlay>
-          {activeTask !== null && (
-            <TaskCard task={activeTask} isDragging />
-          )}
-        </DragOverlay>
-      </DndContext>
+          <DragOverlay>
+            {activeTask !== null && (
+              <TaskCard task={activeTask} isDragging />
+            )}
+          </DragOverlay>
+        </DndContext>
+        {backlogOpen && (
+          <BacklogPanel
+            initialTasks={initialBacklogTasks}
+            projects={projects}
+            onAddTask={handleAddBacklogTask}
+          />
+        )}
+      </div>
 
-      {showNewTaskModal && (
+      {newTaskDefaults !== null && (
         <TaskModal
           mode="new"
           projects={projects}
+          defaultStatus={newTaskDefaults.status}
+          defaultProjectId={newTaskDefaults.projectId}
           onClose={handleModalClose}
         />
       )}
