@@ -1,26 +1,24 @@
+import { redirect } from 'next/navigation';
+import { auth } from '@/auth';
 import { NavBar } from '@/components/NavBar';
+import { SettingsClient } from '@/components/SettingsClient';
+import { getSettings } from '@/lib/settings-actions';
+import { getActiveProjects } from '@/lib/task-actions';
 
 export const metadata = { title: 'Settings — Flowboard' };
 
-export default function SettingsPage() {
+export default async function SettingsPage() {
+  const session = await auth();
+  if (session === null || session.user === undefined) {
+    redirect('/login');
+  }
+
+  const [settingsRow, projects] = await Promise.all([getSettings(), getActiveProjects()]);
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
       <NavBar />
-      <main style={{ flex: 1, maxWidth: 640, margin: '0 auto', padding: 24, width: '100%' }}>
-        <h1
-          style={{
-            fontFamily: 'var(--font-serif)',
-            fontSize: 20,
-            fontWeight: 500,
-            marginBottom: 24,
-          }}
-        >
-          Settings
-        </h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>
-          Full settings — coming in Phase 15.
-        </p>
-      </main>
+      <SettingsClient initialSettings={settingsRow} projects={projects} />
     </div>
   );
 }
