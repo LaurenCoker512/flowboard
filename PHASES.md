@@ -409,7 +409,40 @@ Polish all layouts for tablet and mobile breakpoints.
 
 ---
 
-## Phase 17 — Dark Mode, Visual Polish & Final QA
+## Phase 17 — Subtasks
+
+Inline checklist items on tasks, with a per-task setting to expose them directly on the board card.
+
+**Design notes:** Subtask rows in the modal use the same `--bg-subtle` hover pattern as backlog rows: a leading checkbox, title (inline-editable on click), and a ✕ delete button that appears on hover. The inline-on-board setting is a compact toggle in the Task Modal sidebar labelled "Show on card". When enabled on a board card, the card body expands below the title with a compact checklist: 13px text, `--text-secondary` for completed items (line-through + muted), 18×18px checkbox targets. The progress indicator — "N / M" in 11px `--text-secondary` — appears in the card footer alongside the project dot whenever the task has at least one subtask, regardless of the inline setting. Completed subtask count resets to zero when a recurring task advances to its next occurrence (the subtasks themselves are preserved but their `is_completed` state is cleared).
+
+**Data model:**
+- New `subtasks` table: `id` (uuid PK), `task_id` (FK → `tasks.id` ON DELETE CASCADE), `title` (varchar 255), `is_completed` (boolean, default false), `sort_order` (real, for fractional-index reordering), `created_at` (timestamptz)
+- New column on `tasks`: `show_subtasks_inline` (boolean, default false) — stored on the task row itself; for recurring tasks this is shared state (editing it writes to the master record and all future occurrences via the same "edit all future" mechanism already in place)
+- Index: `subtasks(task_id)`
+
+**Deliverables:**
+- Migration adding the `subtasks` table and `tasks.show_subtasks_inline` column
+- Task Modal subtask section (below description, above footer):
+  - List of existing subtasks with inline-editable titles; checkbox to toggle `is_completed`; ✕ button to delete (with no confirmation — non-destructive for a checklist item)
+  - "+ Add subtask" row at the bottom: pressing Enter or Tab commits the item and focuses a new empty row; pressing Escape cancels
+  - Drag-to-reorder subtasks (fractional indexing via `sort_order`)
+  - Progress summary at the section header: "Subtasks · N / M complete"
+- "Show on card" toggle in Task Modal sidebar (boolean, auto-saves on change)
+- Board card changes:
+  - When `subtasks` exist: compact "N / M" counter in card footer
+  - When `show_subtasks_inline = true`: expanded card body shows full checklist; checking/unchecking an item fires an optimistic server action without opening the modal; the card collapses back to normal height when all subtasks are complete (to keep the board tidy)
+- Server actions: `createSubtask`, `updateSubtask` (title or `is_completed`), `deleteSubtask`, `reorderSubtasks`, `updateShowSubtasksInline`
+- Recurring advancement hook: when `advanceRecurringTask` runs, reset all `is_completed = false` for that task's subtasks (title and order preserved)
+- Export (Phase 15 JSON/CSV): include subtasks array on each task in JSON; add `subtask_titles` and `subtask_completed_count` columns to CSV
+
+**Tests:**
+- Unit: subtask sort-order rebalancing logic; `advanceRecurringTask` resets `is_completed` but preserves titles and order; `show_subtasks_inline` toggle propagates to master + future occurrences (same path as other "edit all future" fields)
+- Integration: `createSubtask` inserts with correct `task_id`; `deleteSubtask` cascades correctly; `reorderSubtasks` updates only affected rows; completing all subtasks does not auto-complete the parent task; `advanceRecurringTask` resets completion state
+- E2E: open task modal → add three subtasks → check one → verify "1 / 3" counter on board card; enable "Show on card" → verify checklist visible on card; check item directly on card → verify optimistic update + server sync; drag subtask to reorder → reload → verify order persists; recurring task: advance → verify subtask checkboxes reset
+
+---
+
+## Phase 18 — Dark Mode, Visual Polish & Final QA
 
 **Design notes:** Dark mode is set via `data-theme="dark"` on `<html>` (not a CSS class or `prefers-color-scheme` media query directly — set it in JS on load based on `window.matchMedia('(prefers-color-scheme: dark)')`). Paper-grain texture: on `--bg-base` elements via the `.fb-grain` class — SVG `feTurbulence` with `baseFrequency: 0.85`, `numOctaves: 2`, `stitchTiles: stitch`; `blend-mode: multiply` (light) / `screen` (dark). Scrollbars: `width: 8px`, `--border` thumb, `border-radius: 8px`, transparent track.
 

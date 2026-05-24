@@ -7,8 +7,7 @@ import { MobileTabBar } from "@/components/MobileTabBar";
 
 const newsreader = Newsreader({
   subsets: ["latin"],
-  axes: ["opsz"],
-  weight: ["400", "500", "600", "700"],
+  weight: "variable",
   variable: "--font-newsreader",
   display: "swap",
 });
@@ -27,11 +26,11 @@ export default async function RootLayout({
   const density = settingsRow?.density ?? 'default';
 
   return (
-    <html lang="en" className={newsreader.variable}>
+    <html lang="en" className={newsreader.variable} suppressHydrationWarning>
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var m=window.matchMedia('(prefers-color-scheme: dark)');function a(e){document.documentElement.setAttribute('data-theme',e.matches?'dark':'light');}a(m);m.addEventListener('change',a);}catch(e){}})()`,
+            __html: `(function(){try{var s=localStorage.getItem('fb-theme');var m=window.matchMedia('(prefers-color-scheme: dark)');function a(d){document.documentElement.setAttribute('data-theme',d?'dark':'light');}if(s==='dark'||s==='light'){a(s==='dark');}else{a(m.matches);m.addEventListener('change',function(e){if(!localStorage.getItem('fb-theme'))a(e.matches);});}}catch(e){}})()`,
           }}
         />
       </head>
