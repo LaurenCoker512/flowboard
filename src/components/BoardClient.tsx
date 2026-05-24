@@ -27,10 +27,13 @@ import {
   DONE_CAP,
 } from '@/lib/board-utils';
 import { updateTaskStatus, clearDone } from '@/lib/board-actions';
+import { advanceNewDayTasks } from '@/lib/recurrence-actions';
 import { parseBacklogOpen } from '@/lib/backlog-utils';
+import { Toast } from '@/components/ui/Toast';
 import type { BoardTask, BoardFilters, Status } from '@/lib/board-utils';
 import type { BoardTaskRow } from '@/lib/board-actions';
 import type { BacklogTaskRow } from '@/lib/backlog-actions';
+import type { RecurrenceRule } from '@/lib/recurrence';
 
 const FILTERS_STORAGE_KEY = 'flowboard:filters';
 const BACKLOG_OPEN_KEY = 'flowboard:backlogOpen';
@@ -59,6 +62,7 @@ function rowToTask(row: BoardTaskRow): BoardTask {
     endAt: row.endAt,
     isRecurring: row.isRecurring,
     completedAt: row.completedAt,
+    recurrenceRule: row.recurrenceRule,
   };
 }
 
@@ -230,6 +234,8 @@ function getColumnStatus(columnId: string): Status | null {
   return null;
 }
 
+const LAST_OPENED_KEY = 'flowboard:lastOpenedDate';
+
 export function BoardClient({ initialTasks, initialBacklogTasks, projects, backlogCount }: BoardClientProps) {
   const [, startTransition] = useTransition();
   const [filters, setFilters] = useState<BoardFilters>({
@@ -239,6 +245,7 @@ export function BoardClient({ initialTasks, initialBacklogTasks, projects, backl
   });
   const [filtersLoaded, setFiltersLoaded] = useState(false);
   const [modalTask, setModalTask] = useState<BoardTask | null>(null);
+  const [toast, setToast] = useState<{ message: string; kind: 'success' | 'info' } | null>(null);
   const [newTaskDefaults, setNewTaskDefaults] = useState<{
     status?: 'backlog' | 'up_next' | 'in_progress' | 'done';
     projectId?: string;
@@ -273,8 +280,28 @@ export function BoardClient({ initialTasks, initialBacklogTasks, projects, backl
     } catch {
       setBacklogOpen(true);
     }
+    try {
+      const lastOpened = localStorage.getItem(LAST_OPENED_KEY);
+      const todayStr = getTodayString();
+      if (lastOpened !== todayStr) {
+        localStorage.setItem(LAST_OPENED_KEY, todayStr);
+        if (lastOpened !== null) {
+          startTransition(async () => {
+            await advanceNewDayTasks();
+          });
+        }
+      }
+    } catch {
+      // localStorage unavailable
+    }
     setFiltersLoaded(true);
   }, []);
+
+  useEffect(() => {
+    if (toast === null) return;
+    const timer = setTimeout(() => setToast(null), 4000);
+    return () => clearTimeout(timer);
+  }, [toast]);
 
   const handleFiltersChange = useCallback((newFilters: BoardFilters) => {
     setFilters(newFilters);
@@ -348,7 +375,10 @@ export function BoardClient({ initialTasks, initialBacklogTasks, projects, backl
 
     startTransition(async () => {
       updateOptimisticTasks({ id: draggedId, newStatus: targetStatus });
-      await updateTaskStatus(draggedId, targetStatus as 'up_next' | 'in_progress' | 'done');
+      const result = await updateTaskStatus(draggedId, targetStatus as 'up_next' | 'in_progress' | 'done');
+      if (targetStatus === 'done' && result.recurringNextDate !== null) {
+        setToast({ message: `Completed — next due ${result.recurringNextDate}`, kind: 'info' });
+      }
     });
   }
 
@@ -529,10 +559,27 @@ export function BoardClient({ initialTasks, initialBacklogTasks, projects, backl
             startAt: modalTask.startAt,
             endAt: modalTask.endAt,
             description: null,
+            isRecurring: modalTask.isRecurring,
+            recurrenceRule: modalTask.recurrenceRule as RecurrenceRule | null,
+            recurringMasterId: null,
           }}
           projects={projects}
           onClose={handleModalClose}
         />
+      )}
+
+      {toast !== null && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: 24,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 100,
+          }}
+        >
+          <Toast kind={toast.kind}>{toast.message}</Toast>
+        </div>
       )}
     </>
   );

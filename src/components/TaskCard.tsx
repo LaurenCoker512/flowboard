@@ -8,7 +8,9 @@ import { ProjectDot } from '@/components/ui/ProjectDot';
 import { RecurringTag } from '@/components/ui/RecurringTag';
 import { TodayChip } from '@/components/ui/TodayChip';
 import { PRIORITY_COLORS } from '@/lib/design';
+import { getFrequencyLabel } from '@/lib/recurrence';
 import type { BoardTask } from '@/lib/board-utils';
+import type { RecurrenceRule } from '@/lib/recurrence';
 
 type TaskCardProps = {
   task: BoardTask;
@@ -141,7 +143,15 @@ export function TaskCard({
             {task.date}
           </span>
         )}
-        {task.isRecurring && <RecurringTag label="Recurring" />}
+        {task.isRecurring && (
+          <RecurringTag
+            label={
+              task.recurrenceRule !== null && task.recurrenceRule !== undefined
+                ? getFrequencyLabel(task.recurrenceRule as RecurrenceRule)
+                : 'Recurring'
+            }
+          />
+        )}
       </div>
     </div>
   );

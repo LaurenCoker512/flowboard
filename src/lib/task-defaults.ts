@@ -7,6 +7,8 @@ export type TaskFormValues = {
   startTime: string;
   endTime: string;
   description: string;
+  isRecurring: boolean;
+  recurrenceRuleJson: string;
 };
 
 export function resolveDefaultProject(

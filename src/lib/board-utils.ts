@@ -15,6 +15,7 @@ export type BoardTask = {
   endAt: Date | null;
   isRecurring: boolean;
   completedAt: Date | null;
+  recurrenceRule: unknown;
   promoted?: boolean;
 };
 

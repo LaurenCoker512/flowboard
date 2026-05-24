@@ -3,7 +3,10 @@
 import { revalidatePath } from 'next/cache';
 import { db } from '@/db';
 import { projects, tasks } from '@/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, isNull, isNotNull } from 'drizzle-orm';
+import { getNextOccurrence } from '@/lib/recurrence';
+import { advanceRecurringTask } from '@/lib/recurrence-actions';
+import type { RecurrenceRule } from '@/lib/recurrence';
 
 export type BoardTaskRow = {
   id: string;
@@ -19,6 +22,7 @@ export type BoardTaskRow = {
   endAt: Date | null;
   isRecurring: boolean;
   completedAt: Date | null;
+  recurrenceRule: unknown;
 };
 
 const BOARD_PATHS = ['/board', '/tasks', '/projects'] as const;
@@ -45,6 +49,7 @@ export async function getBoardTasks(): Promise<BoardTaskRow[]> {
       endAt: tasks.endAt,
       isRecurring: tasks.isRecurring,
       completedAt: tasks.completedAt,
+      recurrenceRule: tasks.recurrenceRule,
     })
     .from(tasks)
     .innerJoin(projects, eq(tasks.projectId, projects.id))
@@ -56,8 +61,26 @@ export async function getBoardTasks(): Promise<BoardTaskRow[]> {
 export async function updateTaskStatus(
   id: string,
   newStatus: 'up_next' | 'in_progress' | 'done',
-): Promise<void> {
+): Promise<{ recurringNextDate: string | null }> {
   const now = new Date();
+  let recurringNextDate: string | null = null;
+
+  if (newStatus === 'done') {
+    const [task] = await db
+      .select({
+        isRecurring: tasks.isRecurring,
+        recurrenceRule: tasks.recurrenceRule,
+        date: tasks.date,
+      })
+      .from(tasks)
+      .where(eq(tasks.id, id));
+
+    if (task !== undefined && task.isRecurring && task.recurrenceRule !== null && task.date !== null) {
+      const rule = task.recurrenceRule as RecurrenceRule;
+      const nextDate = getNextOccurrence(rule, new Date(task.date));
+      recurringNextDate = nextDate.toISOString().slice(0, 10);
+    }
+  }
 
   await db
     .update(tasks)
@@ -69,13 +92,48 @@ export async function updateTaskStatus(
     .where(eq(tasks.id, id));
 
   revalidateAll();
+  return { recurringNextDate };
 }
 
 export async function clearDone(): Promise<void> {
+  // Archive non-recurring, non-exception done tasks
   await db
     .update(tasks)
     .set({ isArchived: true, updatedAt: new Date() })
-    .where(and(eq(tasks.status, 'done'), eq(tasks.isRecurring, false)));
+    .where(
+      and(
+        eq(tasks.status, 'done'),
+        eq(tasks.isRecurring, false),
+        isNull(tasks.recurringMasterId),
+        eq(tasks.isArchived, false),
+      ),
+    );
+
+  // Advance recurring master tasks that are done
+  const recurringDone = await db
+    .select({ id: tasks.id })
+    .from(tasks)
+    .where(and(eq(tasks.status, 'done'), eq(tasks.isRecurring, true), eq(tasks.isArchived, false)));
+
+  for (const task of recurringDone) {
+    await advanceRecurringTask(task.id);
+  }
+
+  // Advance done exception records
+  const exceptionsDone = await db
+    .select({ id: tasks.id })
+    .from(tasks)
+    .where(
+      and(
+        eq(tasks.status, 'done'),
+        isNotNull(tasks.recurringMasterId),
+        eq(tasks.isArchived, false),
+      ),
+    );
+
+  for (const exc of exceptionsDone) {
+    await advanceRecurringTask(exc.id);
+  }
 
   revalidateAll();
 }

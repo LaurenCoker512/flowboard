@@ -26,6 +26,7 @@ function rowToTask(row: BoardTaskRow): BoardTask {
     endAt: row.endAt,
     isRecurring: row.isRecurring,
     completedAt: row.completedAt,
+    recurrenceRule: row.recurrenceRule,
   };
 }
 

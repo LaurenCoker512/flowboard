@@ -27,6 +27,7 @@ function makeTask(overrides: Partial<BoardTask> = {}): BoardTask {
     endAt: null,
     isRecurring: false,
     completedAt: null,
+    recurrenceRule: null,
     ...overrides,
   };
 }

@@ -3,7 +3,8 @@
 import { revalidatePath } from 'next/cache';
 import { db } from '@/db';
 import { projects, tasks } from '@/db/schema';
-import { eq, asc } from 'drizzle-orm';
+import { eq, and, asc, gte } from 'drizzle-orm';
+import type { RecurrenceRule } from '@/lib/recurrence';
 
 const PATHS_TO_REVALIDATE = ['/board', '/tasks', '/projects'] as const;
 
@@ -28,6 +29,8 @@ export type CreateTaskInput = {
   startAt?: Date | null;
   endAt?: Date | null;
   description?: string | null;
+  isRecurring?: boolean;
+  recurrenceRule?: RecurrenceRule | null;
 };
 
 export async function createTaskAction(
@@ -45,13 +48,19 @@ export async function createTaskAction(
     startAt: input.startAt ?? null,
     endAt: input.endAt ?? null,
     description: input.description ?? null,
+    isRecurring: input.isRecurring ?? false,
+    recurrenceRule: (input.isRecurring ?? false) ? (input.recurrenceRule ?? null) : null,
   });
 
   revalidateAll();
   return { error: null };
 }
 
-export type UpdateTaskInput = CreateTaskInput & { id: string };
+export type UpdateTaskInput = CreateTaskInput & {
+  id: string;
+  isRecurring?: boolean;
+  recurrenceRule?: RecurrenceRule | null;
+};
 
 export async function updateTaskAction(
   input: UpdateTaskInput,
@@ -72,6 +81,8 @@ export async function updateTaskAction(
       startAt: clearTimes ? null : (input.startAt ?? null),
       endAt: clearTimes ? null : (input.endAt ?? null),
       description: input.description ?? null,
+      isRecurring: input.isRecurring ?? false,
+      recurrenceRule: (input.isRecurring ?? false) ? (input.recurrenceRule ?? null) : null,
       updatedAt: new Date(),
     })
     .where(eq(tasks.id, input.id));
@@ -93,4 +104,84 @@ export async function getActiveProjects(): Promise<
     .from(projects)
     .where(eq(projects.isArchived, false))
     .orderBy(asc(projects.createdAt));
+}
+
+export async function createExceptionRecord(input: {
+  masterId: string;
+  occurrenceDate: string;
+  title: string;
+  projectId: string;
+  priority: 'must_do' | 'can_wait' | 'fun';
+  status: 'backlog' | 'up_next' | 'in_progress' | 'done';
+  date: string | null;
+  startAt: Date | null;
+  endAt: Date | null;
+  description: string | null;
+}): Promise<{ error: string | null }> {
+  const titleError = validateTaskTitle(input.title);
+  if (titleError !== null) return { error: titleError };
+
+  await db.insert(tasks).values({
+    title: input.title.trim(),
+    projectId: input.projectId,
+    priority: input.priority,
+    status: input.status,
+    date: input.date,
+    startAt: input.startAt,
+    endAt: input.endAt,
+    description: input.description,
+    isRecurring: false,
+    recurringMasterId: input.masterId,
+    recurringOccurrenceDate: input.occurrenceDate,
+  });
+
+  revalidateAll();
+  return { error: null };
+}
+
+export async function updateAllFutureOccurrences(input: {
+  masterId: string;
+  occurrenceDate: string;
+  title: string;
+  projectId: string;
+  priority: 'must_do' | 'can_wait' | 'fun';
+  status: 'backlog' | 'up_next' | 'in_progress' | 'done';
+  date: string | null;
+  startAt: Date | null;
+  endAt: Date | null;
+  description: string | null;
+  isRecurring: boolean;
+  recurrenceRule: RecurrenceRule | null;
+}): Promise<{ error: string | null }> {
+  // Delete future exceptions (recurringOccurrenceDate >= occurrenceDate on this master)
+  await db
+    .delete(tasks)
+    .where(
+      and(
+        eq(tasks.recurringMasterId, input.masterId),
+        gte(tasks.recurringOccurrenceDate, input.occurrenceDate),
+      ),
+    );
+
+  // Update master
+  const clearTimes = input.date === null || input.date === undefined;
+  await db
+    .update(tasks)
+    .set({
+      title: input.title.trim(),
+      projectId: input.projectId,
+      priority: input.priority,
+      status: input.status,
+      date: input.date ?? null,
+      startAt: clearTimes ? null : (input.startAt ?? null),
+      endAt: clearTimes ? null : (input.endAt ?? null),
+      description: input.description ?? null,
+      isRecurring: input.isRecurring,
+      recurrenceRule: input.isRecurring ? (input.recurrenceRule ?? null) : null,
+      updatedAt: new Date(),
+    })
+    .where(eq(tasks.id, input.masterId));
+
+  revalidateAll();
+  return { error: null };
 }
