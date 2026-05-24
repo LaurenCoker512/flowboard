@@ -5,6 +5,7 @@ import {
   isTokenExpired,
   isTokenUsed,
   validateTokenRecord,
+  shouldCleanupToken,
 } from '@/lib/password-reset';
 
 describe('hashToken', () => {
@@ -83,5 +84,26 @@ describe('validateTokenRecord', () => {
 
   it('returns used over expired when both apply', () => {
     expect(validateTokenRecord({ expiresAt: pastDate, usedAt: new Date() })).toBe('used');
+  });
+});
+
+describe('shouldCleanupToken', () => {
+  const future = new Date(Date.now() + 60_000);
+  const past = new Date(Date.now() - 1000);
+
+  it('returns true for an expired, unused token', () => {
+    expect(shouldCleanupToken({ expiresAt: past, usedAt: null })).toBe(true);
+  });
+
+  it('returns true for an unexpired but used token', () => {
+    expect(shouldCleanupToken({ expiresAt: future, usedAt: new Date() })).toBe(true);
+  });
+
+  it('returns true when both expired and used', () => {
+    expect(shouldCleanupToken({ expiresAt: past, usedAt: new Date() })).toBe(true);
+  });
+
+  it('returns false for a valid token (not expired, not used)', () => {
+    expect(shouldCleanupToken({ expiresAt: future, usedAt: null })).toBe(false);
   });
 });

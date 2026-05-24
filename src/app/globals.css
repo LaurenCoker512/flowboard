@@ -268,3 +268,8 @@ body {
   .fb-board-columns { display: flex; }
   .fb-board-column-mobile { display: none !important; }
 }
+
+@keyframes fb-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.45; }
+}

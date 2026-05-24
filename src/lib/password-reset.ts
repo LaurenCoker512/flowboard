@@ -25,3 +25,7 @@ export function validateTokenRecord(record: {
   if (isTokenExpired(record.expiresAt)) return 'expired';
   return 'valid';
 }
+
+export function shouldCleanupToken(record: { expiresAt: Date; usedAt: Date | null }): boolean {
+  return isTokenExpired(record.expiresAt) || isTokenUsed(record.usedAt);
+}

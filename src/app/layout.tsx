@@ -28,6 +28,13 @@ export default async function RootLayout({
 
   return (
     <html lang="en" className={newsreader.variable}>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var m=window.matchMedia('(prefers-color-scheme: dark)');function a(e){document.documentElement.setAttribute('data-theme',e.matches?'dark':'light');}a(m);m.addEventListener('change',a);}catch(e){}})()`,
+          }}
+        />
+      </head>
       <body className="min-h-full" data-density={density}>
         {children}
         <MobileTabBar />

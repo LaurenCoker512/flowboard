@@ -2,8 +2,8 @@ import NextAuth, { CredentialsSignin } from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import { compare } from 'bcryptjs';
 import { db } from '@/db';
-import { users } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { passwordResetTokens, users } from '@/db/schema';
+import { eq, isNotNull, lt, or } from 'drizzle-orm';
 
 export class InvalidCredentialsError extends CredentialsSignin {
   code = 'invalid_credentials';
@@ -36,6 +36,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         const valid = await compare(password, user.passwordHash);
         if (!valid) throw new InvalidCredentialsError();
+
+        void db
+          .delete(passwordResetTokens)
+          .where(or(lt(passwordResetTokens.expiresAt, new Date()), isNotNull(passwordResetTokens.usedAt)))
+          .catch(() => {});
 
         return { id: user.id, name: user.username, email: user.email };
       },

@@ -9,3 +9,4 @@ export { Segmented } from './Segmented';
 export { Toggle } from './Toggle';
 export { EmptyIllustration } from './EmptyIllustration';
 export { Toast } from './Toast';
+export { Skeleton } from './Skeleton';
