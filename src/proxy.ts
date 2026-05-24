@@ -1,8 +1,11 @@
-import { auth } from '@/auth';
+import NextAuth from 'next-auth';
 import { NextResponse } from 'next/server';
+import { authConfig } from '@/auth.config';
 import { getRedirectTarget } from '@/lib/middleware-utils';
 
-export default auth((req) => {
+const { auth } = NextAuth(authConfig);
+
+export const proxy = auth((req) => {
   const target = getRedirectTarget(req.nextUrl.pathname, !!req.auth);
   if (target) {
     return NextResponse.redirect(new URL(target, req.url));

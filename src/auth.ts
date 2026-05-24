@@ -4,15 +4,14 @@ import { compare } from 'bcryptjs';
 import { db } from '@/db';
 import { passwordResetTokens, users } from '@/db/schema';
 import { eq, isNotNull, lt, or } from 'drizzle-orm';
+import { authConfig } from '@/auth.config';
 
 export class InvalidCredentialsError extends CredentialsSignin {
   code = 'invalid_credentials';
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  secret: process.env.NEXTAUTH_SECRET,
-  session: { strategy: 'jwt', maxAge: 30 * 24 * 60 * 60 },
-  pages: { signIn: '/login' },
+  ...authConfig,
   providers: [
     Credentials({
       credentials: {
