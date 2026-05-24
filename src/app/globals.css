@@ -1,26 +1,187 @@
+@import url('https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600;6..72,700&display=swap');
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg-base:       #F0EEEA;
+  --bg-surface:    #F8F6F2;
+  --bg-subtle:     #E9E6E0;
+  --bg-sunken:     #DFDBD3;
+  --border:        #D6D1C9;
+  --border-strong: #BFB9AF;
+  --text-primary:  #34302C;
+  --text-secondary:#7C7770;
+  --text-tertiary: #A8A29A;
+  --text-disabled: #C9C4BC;
+
+  --accent:        #C99098;
+  --accent-soft:   #EBD4D8;
+  --accent-tint:   #F4E5E8;
+  --accent-ink:    #7E5158;
+
+  --p-must:        #C68077;
+  --p-must-soft:   #ECD2CC;
+  --p-must-tint:   #F4E4E0;
+  --p-wait:        #9CA0A6;
+  --p-wait-soft:   #D6D8DC;
+  --p-wait-tint:   #E6E7EA;
+  --p-fun:         #88B5A4;
+  --p-fun-soft:    #CFDFD8;
+  --p-fun-tint:    #E0EAE5;
+
+  --card-pad-y:  10px;
+  --card-pad-x:  12px;
+  --card-gap:    8px;
+  --card-radius: 10px;
+  --row-h:       36px;
+
+  --font-serif: 'Newsreader', ui-serif, Georgia, 'Times New Roman', serif;
+  --font-sans:  ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono:  ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+[data-theme="dark"] {
+  --bg-base:       #1C1B1A;
+  --bg-surface:    #25231F;
+  --bg-subtle:     #2D2B27;
+  --bg-sunken:     #161513;
+  --border:        #3A3833;
+  --border-strong: #504D47;
+  --text-primary:  #EEEAE2;
+  --text-secondary:#A8A39A;
+  --text-tertiary: #7C7770;
+  --text-disabled: #555049;
+
+  --accent:        #E0AEB5;
+  --accent-soft:   #5A4244;
+  --accent-tint:   #3A2D2F;
+  --accent-ink:    #F2D8DC;
+
+  --p-must:        #DBA098;
+  --p-must-soft:   #5A3D38;
+  --p-must-tint:   #382925;
+  --p-wait:        #B6B9BD;
+  --p-wait-soft:   #46474A;
+  --p-wait-tint:   #2C2D2F;
+  --p-fun:         #A6CFC1;
+  --p-fun-soft:    #34504A;
+  --p-fun-tint:    #233330;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+[data-density="compact"] {
+  --card-pad-y: 7px;
+  --card-pad-x: 10px;
+  --card-gap:   6px;
+  --row-h:      32px;
+}
+
+[data-density="roomy"] {
+  --card-pad-y: 12px;
+  --card-pad-x: 14px;
+  --card-gap:   10px;
+  --row-h:      40px;
+}
+
+* {
+  box-sizing: border-box;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  margin: 0;
+  font-family: var(--font-sans);
+  color: var(--text-primary);
+  background: var(--bg-base);
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "ss01", "cv11";
 }
+
+/* Paper grain texture on app backgrounds */
+.fb-grain {
+  background-color: var(--bg-base);
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.15  0 0 0 0 0.12  0 0 0 0 0.08  0 0 0 0.06 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  background-blend-mode: multiply;
+}
+
+[data-theme="dark"] .fb-grain {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 0.95  0 0 0 0 0.85  0 0 0 0.04 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  background-blend-mode: screen;
+}
+
+/* Type tokens */
+.fb-h1      { font-family: var(--font-serif); font-weight: 500; font-size: 28px; line-height: 1.15; letter-spacing: -0.01em; }
+.fb-h2      { font-family: var(--font-serif); font-weight: 500; font-size: 22px; line-height: 1.2; letter-spacing: -0.005em; }
+.fb-h3      { font-family: var(--font-serif); font-weight: 500; font-size: 18px; line-height: 1.25; }
+.fb-page-h  { font-family: var(--font-serif); font-weight: 500; font-size: 20px; line-height: 1.2; }
+.fb-section-h { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-secondary); }
+.fb-body    { font-size: 14px; line-height: 1.45; }
+.fb-meta    { font-size: 12px; line-height: 1.35; color: var(--text-secondary); }
+.fb-mono    { font-family: var(--font-mono); }
+
+/* Buttons */
+.fb-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: 500 13px/1 var(--font-sans);
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+.fb-btn:hover           { background: var(--bg-subtle); border-color: var(--border-strong); }
+.fb-btn--primary        { background: var(--accent); color: #FFF8F4; border-color: transparent; }
+.fb-btn--primary:hover  { background: var(--accent-ink); color: #FFF8F4; }
+.fb-btn--ghost          { background: transparent; border-color: transparent; color: var(--text-secondary); }
+.fb-btn--ghost:hover    { background: var(--bg-subtle); color: var(--text-primary); }
+.fb-btn--danger         { color: var(--p-must); }
+.fb-btn--danger:hover   { background: var(--p-must-tint); border-color: var(--p-must-soft); }
+
+/* Inputs */
+.fb-input,
+.fb-textarea,
+.fb-select {
+  font: 400 14px/1.4 var(--font-sans);
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 11px;
+  width: 100%;
+  outline: none;
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+.fb-input:focus,
+.fb-textarea:focus,
+.fb-select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-tint);
+}
+.fb-input::placeholder,
+.fb-textarea::placeholder { color: var(--text-tertiary); }
+.fb-textarea  { resize: vertical; min-height: 80px; font-family: var(--font-sans); }
+.fb-label     { display: block; font-size: 12px; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px; }
+
+/* Card */
+.fb-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+}
+
+/* Focus ring */
+.fb-focus { box-shadow: 0 0 0 3px var(--accent-tint); border-color: var(--accent) !important; }
+
+/* Decorative divider — soft scallop */
+.fb-divider {
+  height: 8px;
+  background-image: radial-gradient(circle at 4px 8px, var(--border) 1.2px, transparent 1.5px);
+  background-size: 8px 8px;
+  background-position: 0 0;
+}
+
+/* Scrollbar */
+.fb-scroll::-webkit-scrollbar       { width: 8px; height: 8px; }
+.fb-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px; }
+.fb-scroll::-webkit-scrollbar-track { background: transparent; }
