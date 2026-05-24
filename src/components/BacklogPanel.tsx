@@ -13,9 +13,11 @@ type BacklogPanelProps = {
   initialTasks: BacklogTaskRow[];
   projects: Array<{ id: string; name: string; color: string }>;
   onAddTask: (projectId?: string) => void;
+  isOverlay?: boolean;
+  onClose?: () => void;
 };
 
-export function BacklogPanel({ initialTasks, projects, onAddTask }: BacklogPanelProps) {
+export function BacklogPanel({ initialTasks, projects, onAddTask, isOverlay = false, onClose }: BacklogPanelProps) {
   const [, startTransition] = useTransition();
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [collapsedProjects, setCollapsedProjects] = useState<Set<string>>(new Set());
@@ -60,8 +62,34 @@ export function BacklogPanel({ initialTasks, projects, onAddTask }: BacklogPanel
     optimisticTasks.some((task) => task.projectId === project.id),
   );
 
+  const overlayStyle: React.CSSProperties = isOverlay
+    ? {
+        position: 'fixed',
+        inset: 0,
+        zIndex: 35,
+        width: '100%',
+        maxWidth: '100%',
+        borderLeft: 'none',
+        borderTop: '1px solid var(--border)',
+      }
+    : {};
+
   return (
+    <>
+      {isOverlay && onClose !== undefined && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(40,30,20,0.35)',
+            zIndex: 34,
+          }}
+          onClick={onClose}
+          aria-hidden="true"
+        />
+      )}
     <aside
+      aria-label="Later — backlog tasks"
       style={{
         width: 300,
         flexShrink: 0,
@@ -70,6 +98,7 @@ export function BacklogPanel({ initialTasks, projects, onAddTask }: BacklogPanel
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
+        ...overlayStyle,
       }}
     >
       <div
@@ -107,6 +136,17 @@ export function BacklogPanel({ initialTasks, projects, onAddTask }: BacklogPanel
           {optimisticTasks.length}
         </span>
         <div style={{ flex: 1 }} />
+        {isOverlay && onClose !== undefined && (
+          <button
+            type="button"
+            className="fb-btn fb-btn--ghost"
+            onClick={onClose}
+            aria-label="Close backlog panel"
+            style={{ padding: 6 }}
+          >
+            <Icon name="x" size={16} />
+          </button>
+        )}
         <button
           type="button"
           className="fb-btn fb-btn--ghost"
@@ -326,5 +366,6 @@ export function BacklogPanel({ initialTasks, projects, onAddTask }: BacklogPanel
         )}
       </div>
     </aside>
+    </>
   );
 }

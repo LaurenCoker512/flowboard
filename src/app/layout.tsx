@@ -3,6 +3,7 @@ import { Newsreader } from "next/font/google";
 import "./globals.css";
 import { db } from "@/db";
 import { settings } from "@/db/schema";
+import { MobileTabBar } from "@/components/MobileTabBar";
 
 const newsreader = Newsreader({
   subsets: ["latin"],
@@ -27,7 +28,10 @@ export default async function RootLayout({
 
   return (
     <html lang="en" className={newsreader.variable}>
-      <body className="min-h-full" data-density={density}>{children}</body>
+      <body className="min-h-full" data-density={density}>
+        {children}
+        <MobileTabBar />
+      </body>
     </html>
   );
 }

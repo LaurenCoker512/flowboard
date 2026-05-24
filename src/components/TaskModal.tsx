@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useTransition, useCallback, useRef } from 'react';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { Icon } from './ui/Icon';
 import { Segmented } from './ui/Segmented';
 import { PRIORITY_COLORS } from '@/lib/design';
@@ -640,6 +641,8 @@ export function TaskModal({
     });
   };
 
+  const modalRef = useFocusTrap<HTMLDivElement>(true, handleClose);
+
   const currentProject = projects.find((p) => p.id === formValues.projectId);
 
   if (showDiscard) {
@@ -862,6 +865,10 @@ export function TaskModal({
       onClick={handleClose}
     >
       <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={mode === 'new' ? 'New task' : 'Edit task'}
         style={{
           background: 'var(--bg-surface)',
           borderRadius: 16,
@@ -895,6 +902,8 @@ export function TaskModal({
             {currentProject?.name ?? 'No project'}
           </div>
           <input
+            id="task-title"
+            aria-label="Task title"
             className="fb-input"
             placeholder="Task title"
             value={formValues.title}
@@ -935,7 +944,7 @@ export function TaskModal({
         </div>
 
         {/* Body */}
-        <div style={{ display: 'flex', flex: 1, overflow: 'hidden', minHeight: 0 }}>
+        <div className="fb-modal-body" style={{ display: 'flex', flex: 1, overflow: 'hidden', minHeight: 0 }}>
           {/* Main column */}
           <div
             style={{
@@ -983,6 +992,7 @@ export function TaskModal({
 
           {/* Sidebar */}
           <div
+            className="fb-modal-sidebar"
             style={{
               width: 230,
               background: 'var(--bg-base)',
@@ -995,10 +1005,11 @@ export function TaskModal({
           >
             {/* Project */}
             <div>
-              <label className="fb-label" style={{ display: 'block', marginBottom: 6 }}>
+              <label htmlFor="task-project" className="fb-label" style={{ display: 'block', marginBottom: 6 }}>
                 Project
               </label>
               <select
+                id="task-project"
                 className="fb-select"
                 value={formValues.projectId}
                 onChange={(e) => updateField('projectId', e.target.value)}
@@ -1069,10 +1080,11 @@ export function TaskModal({
 
             {/* Date */}
             <div>
-              <label className="fb-label" style={{ display: 'block', marginBottom: 6 }}>
+              <label htmlFor="task-date" className="fb-label" style={{ display: 'block', marginBottom: 6 }}>
                 Date
               </label>
               <input
+                id="task-date"
                 type="date"
                 className="fb-input"
                 value={formValues.date}
@@ -1084,10 +1096,11 @@ export function TaskModal({
 
             {/* Time */}
             <div>
-              <label className="fb-label" style={{ display: 'block', marginBottom: 6 }}>
+              <label htmlFor="task-start-time" className="fb-label" style={{ display: 'block', marginBottom: 6 }}>
                 Start time
               </label>
               <input
+                id="task-start-time"
                 type="time"
                 className="fb-input"
                 value={formValues.startTime}
@@ -1098,10 +1111,11 @@ export function TaskModal({
             </div>
 
             <div>
-              <label className="fb-label" style={{ display: 'block', marginBottom: 6 }}>
+              <label htmlFor="task-end-time" className="fb-label" style={{ display: 'block', marginBottom: 6 }}>
                 End time
               </label>
               <input
+                id="task-end-time"
                 type="time"
                 className="fb-input"
                 value={formValues.endTime}
@@ -1186,6 +1200,7 @@ export function TaskModal({
 
         {/* Footer */}
         <div
+          className="fb-modal-footer"
           style={{
             background: 'var(--bg-base)',
             borderTop: '1px solid var(--border)',

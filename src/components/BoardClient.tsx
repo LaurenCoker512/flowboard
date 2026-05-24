@@ -30,6 +30,7 @@ import { updateTaskStatus, clearDone } from '@/lib/board-actions';
 import { advanceNewDayTasks } from '@/lib/recurrence-actions';
 import { parseBacklogOpen } from '@/lib/backlog-utils';
 import { Toast } from '@/components/ui/Toast';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import type { BoardTask, BoardFilters, Status } from '@/lib/board-utils';
 import type { BoardTaskRow } from '@/lib/board-actions';
 import type { BacklogTaskRow } from '@/lib/backlog-actions';
@@ -252,6 +253,8 @@ export function BoardClient({ initialTasks, initialBacklogTasks, projects, backl
   } | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [backlogOpen, setBacklogOpen] = useState(true);
+  const [mobileColumn, setMobileColumn] = useState<'appointments' | 'up_next' | 'in_progress' | 'done'>('up_next');
+  const isMobile = useIsMobile();
 
   const [optimisticTasks, updateOptimisticTasks] = useOptimistic(
     initialTasks.map(rowToTask),
@@ -293,6 +296,14 @@ export function BoardClient({ initialTasks, initialBacklogTasks, projects, backl
       }
     } catch {
       // localStorage unavailable
+    }
+    // Handle ?new=1 from mobile FAB
+    const searchParams = new URLSearchParams(window.location.search);
+    if (searchParams.get('new') === '1') {
+      setNewTaskDefaults({ status: 'backlog' });
+      const url = new URL(window.location.href);
+      url.searchParams.delete('new');
+      window.history.replaceState({}, '', url.toString());
     }
     setFiltersLoaded(true);
   }, []);
@@ -417,6 +428,58 @@ export function BoardClient({ initialTasks, initialBacklogTasks, projects, backl
         backlogCount={backlogCount}
       />
 
+      {/* Mobile column picker */}
+      {isMobile && (
+        <div
+          className="fb-mobile-only"
+          style={{
+            display: 'flex',
+            gap: 2,
+            padding: '8px 12px',
+            background: 'var(--bg-surface)',
+            borderBottom: '1px solid var(--border)',
+            flexShrink: 0,
+          }}
+        >
+          {(
+            [
+              { id: 'appointments', label: 'Appt', count: columns.appointments.length },
+              { id: 'up_next', label: 'Next', count: columns.upNext.length },
+              { id: 'in_progress', label: 'Doing', count: columns.inProgress.length },
+              { id: 'done', label: 'Done', count: columns.done.length },
+            ] as const
+          ).map((col) => {
+            const isActive = mobileColumn === col.id;
+            return (
+              <button
+                key={col.id}
+                type="button"
+                onClick={() => setMobileColumn(col.id)}
+                style={{
+                  flex: 1,
+                  padding: '6px 4px',
+                  borderRadius: 6,
+                  fontSize: 12,
+                  fontWeight: isActive ? 600 : 450,
+                  border: 'none',
+                  cursor: 'pointer',
+                  background: isActive ? 'var(--accent-tint)' : 'transparent',
+                  color: isActive ? 'var(--accent-ink)' : 'var(--text-secondary)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 2,
+                }}
+                aria-pressed={isActive}
+              >
+                <span>{col.label}</span>
+                <span style={{ fontSize: 10, opacity: 0.7 }}>{col.count}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       <div style={{ flex: 1, minHeight: 0, display: 'flex', overflow: 'hidden' }}>
         <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
           <div
@@ -429,7 +492,7 @@ export function BoardClient({ initialTasks, initialBacklogTasks, projects, backl
               overflow: 'hidden',
             }}
           >
-            <div style={{ display: 'flex', gap: 14, flex: 1, minHeight: 0 }}>
+            <div className="fb-board-columns" style={{ display: 'flex', gap: 14, flex: 1, minHeight: 0 }}>
               <BoardColumn
                 title="Appointments"
                 count={columns.appointments.length}
@@ -519,6 +582,111 @@ export function BoardClient({ initialTasks, initialBacklogTasks, projects, backl
                 </BoardColumn>
               </SortableContext>
             </div>
+
+            {/* Mobile single-column view */}
+            <div
+              className="fb-board-column-mobile"
+              style={{
+                flex: 1,
+                minHeight: 0,
+                display: 'flex',
+                flexDirection: 'column',
+              }}
+            >
+              {mobileColumn === 'appointments' && (
+                <BoardColumn
+                  title="Appointments"
+                  count={columns.appointments.length}
+                  accentColor="var(--p-must)"
+                  isEmpty={columns.appointments.length === 0}
+                  emptyMessage="No appointments today."
+                >
+                  {columns.appointments.map((task) => (
+                    <TaskCard
+                      key={task.id}
+                      task={task}
+                      onClick={() => handleCardClick(task)}
+                    />
+                  ))}
+                </BoardColumn>
+              )}
+              {mobileColumn === 'up_next' && (
+                <SortableContext items={upNextIds} strategy={verticalListSortingStrategy} id="up_next_mobile">
+                  <BoardColumn
+                    title="What's next"
+                    count={columns.upNext.length}
+                    accentColor="var(--accent)"
+                    isEmpty={columns.upNext.length === 0}
+                    emptyMessage="Nothing up next. Enjoy the calm."
+                  >
+                    {columns.upNext.map((task) => (
+                      <SortableCard
+                        key={task.id}
+                        task={task}
+                        showTodayChip={task.promoted === true}
+                        onCardClick={handleCardClick}
+                      />
+                    ))}
+                  </BoardColumn>
+                </SortableContext>
+              )}
+              {mobileColumn === 'in_progress' && (
+                <SortableContext items={inProgressIds} strategy={verticalListSortingStrategy} id="in_progress_mobile">
+                  <BoardColumn
+                    title="In progress"
+                    count={columns.inProgress.length}
+                    accentColor="var(--p-fun)"
+                    isEmpty={columns.inProgress.length === 0}
+                    emptyMessage="Nothing in progress yet."
+                  >
+                    {columns.inProgress.map((task) => (
+                      <SortableCard
+                        key={task.id}
+                        task={task}
+                        onCardClick={handleCardClick}
+                      />
+                    ))}
+                  </BoardColumn>
+                </SortableContext>
+              )}
+              {mobileColumn === 'done' && (
+                <SortableContext items={doneIds} strategy={verticalListSortingStrategy} id="done_mobile">
+                  <BoardColumn
+                    title="Done"
+                    count={columns.done.length}
+                    accentColor="var(--text-tertiary)"
+                    action={
+                      columns.done.length > 0
+                        ? { label: 'Clear done', onClick: handleClearDone }
+                        : undefined
+                    }
+                    isEmpty={columns.done.length === 0}
+                    emptyMessage="Nothing done yet today."
+                  >
+                    {columns.done.map((task) => (
+                      <SortableCard
+                        key={task.id}
+                        task={task}
+                        muted
+                        onCardClick={handleCardClick}
+                      />
+                    ))}
+                    {columns.doneTotal > DONE_CAP && (
+                      <div
+                        style={{
+                          textAlign: 'center',
+                          fontSize: 12,
+                          color: 'var(--text-tertiary)',
+                          padding: '6px 0',
+                        }}
+                      >
+                        +{columns.doneTotal - DONE_CAP} more
+                      </div>
+                    )}
+                  </BoardColumn>
+                </SortableContext>
+              )}
+            </div>
           </div>
 
           <DragOverlay>
@@ -532,6 +700,8 @@ export function BoardClient({ initialTasks, initialBacklogTasks, projects, backl
             initialTasks={initialBacklogTasks}
             projects={projects}
             onAddTask={handleAddBacklogTask}
+            isOverlay={isMobile}
+            onClose={isMobile ? handleToggleBacklog : undefined}
           />
         )}
       </div>

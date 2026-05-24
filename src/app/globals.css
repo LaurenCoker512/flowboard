@@ -185,3 +185,86 @@ body {
 .fb-scroll::-webkit-scrollbar       { width: 8px; height: 8px; }
 .fb-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px; }
 .fb-scroll::-webkit-scrollbar-track { background: transparent; }
+
+/* ─── Responsive utilities ──────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .fb-mobile-hidden { display: none !important; }
+  body { padding-bottom: env(safe-area-inset-bottom, 0px); }
+}
+@media (min-width: 641px) {
+  .fb-mobile-only { display: none !important; }
+}
+@media (max-width: 1024px) {
+  .fb-desktop-only { display: none !important; }
+}
+@media (min-width: 1025px) {
+  .fb-tablet-only { display: none !important; }
+}
+
+/* ─── Mobile bottom tab bar ─────────────────────────────────────────────── */
+.fb-tabbar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background: var(--bg-surface);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  z-index: 40;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.fb-tabbar-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  flex: 1;
+  text-decoration: none;
+  color: var(--text-tertiary);
+  font-size: 10px;
+  font-weight: 500;
+  padding: 4px 0;
+  min-height: 44px;
+}
+.fb-tabbar-item--active { color: var(--accent-ink); }
+.fb-tabbar-fab {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 4px 10px rgba(184, 106, 110, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+  position: relative;
+  top: -10px;
+  flex-shrink: 0;
+  color: #FFF8F4;
+}
+
+/* ─── Mobile task modal ─────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .fb-modal-body { flex-direction: column !important; }
+  .fb-modal-sidebar {
+    width: 100% !important;
+    border-left: none !important;
+    border-top: 1px solid var(--border);
+  }
+  .fb-modal-footer { position: sticky; bottom: 0; z-index: 1; }
+}
+
+/* ─── Mobile board ──────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .fb-board-columns { display: none !important; }
+  .fb-board-column-mobile { display: flex !important; }
+}
+@media (min-width: 641px) {
+  .fb-board-columns { display: flex; }
+  .fb-board-column-mobile { display: none !important; }
+}

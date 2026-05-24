@@ -342,6 +342,20 @@ export function WeeklyCalendar({
     });
   }
 
+  const touchStartX = useRef<number | null>(null);
+
+  function handleTouchStart(e: React.TouchEvent) {
+    touchStartX.current = e.touches[0]?.clientX ?? null;
+  }
+
+  function handleTouchEnd(e: React.TouchEvent) {
+    if (touchStartX.current === null) return;
+    const deltaX = (e.changedTouches[0]?.clientX ?? 0) - touchStartX.current;
+    touchStartX.current = null;
+    if (Math.abs(deltaX) < 50) return;
+    navigateWeek(deltaX < 0 ? 1 : -1);
+  }
+
   function goToToday() {
     setAnchorDate(new Date());
   }
@@ -564,6 +578,8 @@ export function WeeklyCalendar({
 
           {/* Calendar grid */}
           <div
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
             style={{
               flex: 1,
               padding: '14px 22px 18px 22px',

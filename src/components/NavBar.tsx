@@ -17,6 +17,7 @@ export function NavBar() {
 
   return (
     <header
+      className="fb-mobile-hidden"
       style={{
         display: 'flex',
         alignItems: 'center',
