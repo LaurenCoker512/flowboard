@@ -1,13 +1,11 @@
 'use server';
 
-import { headers } from 'next/headers';
 import { db } from '@/db';
 import { users, passwordResetTokens } from '@/db/schema';
 import { eq, and, gt, isNull } from 'drizzle-orm';
 import { hash } from 'bcryptjs';
 import { Resend } from 'resend';
 import { generateResetToken, hashToken } from './password-reset';
-import { resetRateLimit, getClientIp, retryAfterMessage } from './rate-limit';
 
 export type ResetRequestState = {
   status: 'idle' | 'success' | 'error';
@@ -24,12 +22,6 @@ export async function requestPasswordResetAction(
   _prevState: ResetRequestState,
   formData: FormData,
 ): Promise<ResetRequestState> {
-  const ip = getClientIp(await headers());
-  const { success, reset } = await resetRateLimit.limit(ip);
-  if (!success) {
-    return { status: 'error', message: retryAfterMessage(reset) };
-  }
-
   const email = formData.get('email');
   if (typeof email !== 'string' || !email.includes('@')) {
     return { status: 'error', message: 'Please enter a valid email address.' };
@@ -54,7 +46,8 @@ export async function requestPasswordResetAction(
     const baseUrl = process.env.NEXTAUTH_URL ?? 'http://localhost:3000';
     const resetUrl = `${baseUrl}/reset-password?token=${raw}`;
 
-    if (process.env.NODE_ENV === 'test') {
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`[dev] Password reset URL: ${resetUrl}`);
       return {
         status: 'success',
         message: "If that email is registered, you'll receive a reset link shortly.",
