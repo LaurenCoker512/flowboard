@@ -1,14 +1,63 @@
+import { redirect } from 'next/navigation';
+import { auth } from '@/auth';
 import { NavBar } from '@/components/NavBar';
+import { BoardClient } from '@/components/BoardClient';
+import { getBoardTasks } from '@/lib/board-actions';
+import { getActiveProjects } from '@/lib/task-actions';
+import { getTodayString } from '@/lib/board-utils';
+import type { BoardTask } from '@/lib/board-utils';
+import type { BoardTaskRow } from '@/lib/board-actions';
 
 export const metadata = { title: 'Board — Flowboard' };
 
-export default function BoardPage() {
+function rowToTask(row: BoardTaskRow): BoardTask {
+  return {
+    id: row.id,
+    title: row.title,
+    projectId: row.projectId,
+    projectName: row.projectName,
+    projectColor: row.projectColor,
+    priority: row.priority,
+    status: row.status,
+    isArchived: row.isArchived,
+    date: row.date,
+    startAt: row.startAt,
+    endAt: row.endAt,
+    isRecurring: row.isRecurring,
+    completedAt: row.completedAt,
+  };
+}
+
+export default async function BoardPage() {
+  const session = await auth();
+  if (session === null || session.user === undefined) {
+    redirect('/login');
+  }
+
+  const [taskRows, projects] = await Promise.all([getBoardTasks(), getActiveProjects()]);
+
+  const today = getTodayString();
+  const allTasks = taskRows.map(rowToTask);
+
+  const backlogCount = allTasks.filter(
+    (task) => task.status === 'backlog' && !task.isArchived && task.date !== today,
+  ).length;
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100vh',
+        overflow: 'hidden',
+      }}
+    >
       <NavBar />
-      <main style={{ flex: 1, padding: 24 }}>
-        <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>Board — coming in Phase 8.</p>
-      </main>
+      <BoardClient
+        initialTasks={taskRows}
+        projects={projects}
+        backlogCount={backlogCount}
+      />
     </div>
   );
 }
