@@ -344,6 +344,7 @@ interface TaskModalProps {
   defaultProjectId?: string;
   defaultStatus?: 'backlog' | 'up_next' | 'in_progress' | 'done';
   defaultDate?: string;
+  defaultStartTime?: string;
   onClose: () => void;
   onSaved?: () => void;
 }
@@ -355,6 +356,7 @@ export function TaskModal({
   defaultProjectId,
   defaultStatus = 'backlog',
   defaultDate,
+  defaultStartTime,
   onClose,
   onSaved,
 }: TaskModalProps) {
@@ -412,7 +414,7 @@ export function TaskModal({
     priority: task?.priority ?? 'can_wait',
     status: task?.status ?? defaultStatus,
     date: task?.date ?? defaultDate ?? '',
-    startTime: extractTime(task?.startAt),
+    startTime: mode === 'edit' ? extractTime(task?.startAt) : (defaultStartTime ?? ''),
     endTime: extractTime(task?.endAt),
     description: task?.description ?? '',
     isRecurring: task?.isRecurring ?? false,
