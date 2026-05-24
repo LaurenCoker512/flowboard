@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validateProjectName, validateProjectColor } from '@/lib/project-actions';
+import { validateProjectName, validateProjectColor } from '@/lib/project-utils';
 import { PROJECT_PALETTE } from '@/lib/design';
 
 describe('validateProjectName', () => {

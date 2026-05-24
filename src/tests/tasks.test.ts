@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validateTaskTitle } from '@/lib/task-actions';
+import { validateTaskTitle } from '@/lib/task-utils';
 import { resolveDefaultProject, isTaskDirty, type TaskFormValues } from '@/lib/task-defaults';
 
 describe('validateTaskTitle', () => {

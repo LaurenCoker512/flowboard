@@ -4,31 +4,9 @@ import { revalidatePath } from 'next/cache';
 import { db } from '@/db';
 import { projects, tasks } from '@/db/schema';
 import { eq, count } from 'drizzle-orm';
-import { PROJECT_PALETTE } from './design';
-
-export type ProjectActionState = { error: string | null };
-
-export type ProjectWithCount = {
-  id: string;
-  name: string;
-  color: string;
-  isArchived: boolean;
-  createdAt: Date;
-  taskCount: number;
-};
-
-export function validateProjectName(name: unknown): string | null {
-  if (typeof name !== 'string' || name.trim().length === 0) return 'Name is required.';
-  if (name.trim().length > 100) return 'Name must be 100 characters or fewer.';
-  return null;
-}
-
-export function validateProjectColor(color: unknown): string | null {
-  if (typeof color !== 'string' || !(PROJECT_PALETTE as readonly string[]).includes(color)) {
-    return 'Please select a color.';
-  }
-  return null;
-}
+import { validateProjectName, validateProjectColor } from './project-utils';
+import type { ProjectActionState, ProjectWithCount } from './project-utils';
+export type { ProjectActionState, ProjectWithCount } from './project-utils';
 
 export async function getProjectsWithTaskCounts(): Promise<ProjectWithCount[]> {
   const rows = await db

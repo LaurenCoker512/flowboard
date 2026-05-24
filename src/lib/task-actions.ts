@@ -5,6 +5,7 @@ import { db } from '@/db';
 import { projects, tasks } from '@/db/schema';
 import { eq, and, asc, gte } from 'drizzle-orm';
 import type { RecurrenceRule } from '@/lib/recurrence';
+import { validateTaskTitle } from '@/lib/task-utils';
 
 const PATHS_TO_REVALIDATE = ['/board', '/tasks', '/projects'] as const;
 
@@ -12,12 +13,6 @@ function revalidateAll(): void {
   for (const path of PATHS_TO_REVALIDATE) {
     revalidatePath(path);
   }
-}
-
-export function validateTaskTitle(title: unknown): string | null {
-  if (typeof title !== 'string' || title.trim().length === 0) return 'Title is required.';
-  if (title.trim().length > 255) return 'Title must be 255 characters or fewer.';
-  return null;
 }
 
 export type CreateTaskInput = {
