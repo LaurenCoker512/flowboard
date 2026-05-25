@@ -28,7 +28,7 @@ import {
   getBacklogOrderBetween,
   needsRebalance,
 } from '@/lib/project-detail-utils';
-import type { ProjectDetailData, ProjectDetailTask } from '@/lib/project-detail-actions';
+import type { ProjectDetailData, ProjectDetailTask } from '@/lib/project-detail-utils';
 import { getTodayString } from '@/lib/board-utils';
 
 type ActiveProjects = Array<{ id: string; name: string; color: string }>;

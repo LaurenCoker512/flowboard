@@ -11,6 +11,14 @@ export type ProjectDetailTask = {
   completedAt: Date | null;
 };
 
+export type ProjectDetailData = {
+  id: string;
+  name: string;
+  color: string;
+  description: string | null;
+  tasks: ProjectDetailTask[];
+};
+
 export type ProjectStats = {
   total: number;
   inProgress: number;

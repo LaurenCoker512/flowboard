@@ -5,17 +5,7 @@ import { db } from '@/db';
 import { projects, tasks } from '@/db/schema';
 import { eq, and, asc } from 'drizzle-orm';
 import { generateRebalancedOrders } from './project-detail-utils';
-import type { ProjectDetailTask } from './project-detail-utils';
-
-export type { ProjectDetailTask };
-
-export type ProjectDetailData = {
-  id: string;
-  name: string;
-  color: string;
-  description: string | null;
-  tasks: ProjectDetailTask[];
-};
+import type { ProjectDetailTask, ProjectDetailData } from './project-detail-utils';
 
 export async function getProjectDetail(id: string): Promise<ProjectDetailData | null> {
   const [project] = await db
