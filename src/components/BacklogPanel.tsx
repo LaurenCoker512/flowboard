@@ -13,11 +13,12 @@ type BacklogPanelProps = {
   initialTasks: BacklogTaskRow[];
   projects: Array<{ id: string; name: string; color: string }>;
   onAddTask: (projectId?: string) => void;
+  isOpen?: boolean;
   isOverlay?: boolean;
   onClose?: () => void;
 };
 
-export function BacklogPanel({ initialTasks, projects, onAddTask, isOverlay = false, onClose }: BacklogPanelProps) {
+export function BacklogPanel({ initialTasks, projects, onAddTask, isOpen = true, isOverlay = false, onClose }: BacklogPanelProps) {
   const [, startTransition] = useTransition();
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [collapsedProjects, setCollapsedProjects] = useState<Set<string>>(new Set());
@@ -62,6 +63,8 @@ export function BacklogPanel({ initialTasks, projects, onAddTask, isOverlay = fa
     optimisticTasks.some((task) => task.projectId === project.id),
   );
 
+  if (isOverlay && !isOpen) return null;
+
   const overlayStyle: React.CSSProperties = isOverlay
     ? {
         position: 'fixed',
@@ -74,7 +77,7 @@ export function BacklogPanel({ initialTasks, projects, onAddTask, isOverlay = fa
       }
     : {};
 
-  return (
+  const aside = (
     <>
       {isOverlay && onClose !== undefined && (
         <div
@@ -91,7 +94,7 @@ export function BacklogPanel({ initialTasks, projects, onAddTask, isOverlay = fa
     <aside
       aria-label="Later — backlog tasks"
       style={{
-        width: 300,
+        width: isOverlay ? undefined : 300,
         flexShrink: 0,
         borderLeft: '1px solid var(--border)',
         background: 'var(--bg-surface)',
@@ -367,5 +370,20 @@ export function BacklogPanel({ initialTasks, projects, onAddTask, isOverlay = fa
       </div>
     </aside>
     </>
+  );
+
+  if (isOverlay) return aside;
+
+  return (
+    <div
+      style={{
+        width: isOpen ? 300 : 0,
+        flexShrink: 0,
+        overflow: 'hidden',
+        transition: 'width 220ms cubic-bezier(0.4, 0, 0.2, 1)',
+      }}
+    >
+      {aside}
+    </div>
   );
 }

@@ -729,15 +729,14 @@ export function BoardClient({ initialTasks, initialBacklogTasks, projects, backl
             )}
           </DragOverlay>
         </DndContext>
-        {backlogOpen && (
-          <BacklogPanel
-            initialTasks={initialBacklogTasks}
-            projects={projects}
-            onAddTask={handleAddBacklogTask}
-            isOverlay={isMobile}
-            onClose={isMobile ? handleToggleBacklog : undefined}
-          />
-        )}
+        <BacklogPanel
+          initialTasks={initialBacklogTasks}
+          projects={projects}
+          onAddTask={handleAddBacklogTask}
+          isOpen={backlogOpen}
+          isOverlay={isMobile}
+          onClose={isMobile ? handleToggleBacklog : undefined}
+        />
       </div>
 
       {newTaskDefaults !== null && (
