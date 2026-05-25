@@ -250,12 +250,6 @@ body {
 
 /* ─── Mobile task modal ─────────────────────────────────────────────────── */
 @media (max-width: 640px) {
-  .fb-modal-body { flex-direction: column !important; }
-  .fb-modal-sidebar {
-    width: 100% !important;
-    border-left: none !important;
-    border-top: 1px solid var(--border);
-  }
   .fb-modal-footer { position: sticky; bottom: 0; z-index: 1; }
 }
 

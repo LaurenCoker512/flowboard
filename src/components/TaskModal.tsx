@@ -881,7 +881,7 @@ export function TaskModal({
         style={{
           background: 'var(--bg-surface)',
           borderRadius: 16,
-          width: 580,
+          width: 660,
           maxWidth: '96vw',
           maxHeight: '90vh',
           display: 'flex',
@@ -953,83 +953,20 @@ export function TaskModal({
         </div>
 
         {/* Body */}
-        <div className="fb-modal-body" style={{ display: 'flex', flex: 1, overflow: 'hidden', minHeight: 0 }}>
-          {/* Main column */}
-          <div
-            style={{
-              flex: 1,
-              padding: '18px 22px',
-              borderRight: '1px solid var(--border)',
-              overflowY: 'auto',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 12,
-            }}
-          >
-            {error !== null && (
-              <p style={{ margin: 0, fontSize: 13, color: 'var(--p-must)', fontWeight: 500 }}>
-                {error}
-              </p>
-            )}
+        <div
+          className="fb-modal-body"
+          style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: '18px 22px', display: 'flex', flexDirection: 'column', gap: 18 }}
+        >
+          {error !== null && (
+            <p style={{ margin: 0, fontSize: 13, color: 'var(--p-must)', fontWeight: 500 }}>
+              {error}
+            </p>
+          )}
 
-            {showDescription ? (
-              <textarea
-                className="fb-textarea"
-                placeholder="Add a description…"
-                value={formValues.description}
-                onChange={(e) => updateField('description', e.target.value)}
-                disabled={isPending}
-                onBlur={() => {
-                  if (!formValues.description) setShowDescription(false);
-                }}
-                rows={4}
-                style={{ resize: 'vertical', width: '100%' }}
-                autoFocus={!formValues.description}
-              />
-            ) : (
-              <button
-                type="button"
-                className="fb-btn fb-btn--ghost"
-                onClick={() => setShowDescription(true)}
-                style={{ alignSelf: 'flex-start', fontSize: 13, color: 'var(--text-secondary)' }}
-              >
-                <Icon name="plus" size={14} />
-                Add description
-              </button>
-            )}
-
-            {mode === 'edit' && task !== undefined && (
-              <div
-                style={{
-                  borderTop: '1px solid var(--border)',
-                  paddingTop: 12,
-                  marginTop: 4,
-                }}
-              >
-                <SubtaskSection
-                  taskId={task.id}
-                  initialSubtasks={task.subtasks ?? []}
-                  modalIsPending={isPending}
-                />
-              </div>
-            )}
-          </div>
-
-          {/* Sidebar */}
-          <div
-            className="fb-modal-sidebar"
-            style={{
-              width: 230,
-              background: 'var(--bg-base)',
-              padding: '18px 16px',
-              overflowY: 'auto',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 16,
-            }}
-          >
+          {/* Fields row */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
             {/* Project */}
-            <div>
+            <div style={{ flex: '1 1 160px', minWidth: 140 }}>
               <label htmlFor="task-project" className="fb-label" style={{ display: 'block', marginBottom: 6 }}>
                 Project
               </label>
@@ -1050,7 +987,7 @@ export function TaskModal({
             </div>
 
             {/* Priority */}
-            <div>
+            <div style={{ flex: '1 1 160px', minWidth: 140 }}>
               <label className="fb-label" style={{ display: 'block', marginBottom: 6 }}>
                 Priority
               </label>
@@ -1063,11 +1000,11 @@ export function TaskModal({
             </div>
 
             {/* Status */}
-            <div>
+            <div style={{ flex: '1 1 160px', minWidth: 140 }}>
               <label className="fb-label" style={{ display: 'block', marginBottom: 4 }}>
                 Status
               </label>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <div style={{ display: 'flex', gap: 2 }}>
                 {STATUS_OPTIONS.map((option) => {
                   const isActive = formValues.status === option.value;
                   return (
@@ -1077,26 +1014,18 @@ export function TaskModal({
                       onClick={() => updateField('status', option.value)}
                       disabled={isPending}
                       style={{
-                        textAlign: 'left',
-                        padding: '6px 10px',
+                        flex: 1,
+                        padding: '6px 4px',
                         borderRadius: 6,
-                        fontSize: 12.5,
+                        fontSize: 12,
                         fontWeight: 500,
-                        border: 'none',
+                        border: '1px solid var(--border)',
                         cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 4,
                         background: isActive ? 'var(--accent-tint)' : 'transparent',
                         color: isActive ? 'var(--accent-ink)' : 'var(--text-secondary)',
                       }}
                     >
-                      {isActive ? (
-                        <Icon name="check" size={12} />
-                      ) : (
-                        <span style={{ width: 12, display: 'inline-block' }} />
-                      )}
-                      <span style={{ paddingLeft: isActive ? 0 : 0 }}>{option.label}</span>
+                      {option.label}
                     </button>
                   );
                 })}
@@ -1104,7 +1033,7 @@ export function TaskModal({
             </div>
 
             {/* Date */}
-            <div>
+            <div style={{ flex: '1 1 130px', minWidth: 120 }}>
               <label htmlFor="task-date" className="fb-label" style={{ display: 'block', marginBottom: 6 }}>
                 Date
               </label>
@@ -1119,8 +1048,8 @@ export function TaskModal({
               />
             </div>
 
-            {/* Time */}
-            <div>
+            {/* Start time */}
+            <div style={{ flex: '1 1 110px', minWidth: 100 }}>
               <label htmlFor="task-start-time" className="fb-label" style={{ display: 'block', marginBottom: 6 }}>
                 Start time
               </label>
@@ -1135,7 +1064,8 @@ export function TaskModal({
               />
             </div>
 
-            <div>
+            {/* End time */}
+            <div style={{ flex: '1 1 110px', minWidth: 100 }}>
               <label htmlFor="task-end-time" className="fb-label" style={{ display: 'block', marginBottom: 6 }}>
                 End time
               </label>
@@ -1151,7 +1081,7 @@ export function TaskModal({
             </div>
 
             {/* Recurrence */}
-            <div>
+            <div style={{ flex: '1 1 180px', minWidth: 160 }}>
               <label className="fb-label" style={{ display: 'block', marginBottom: 6 }}>
                 Recurrence
               </label>
@@ -1222,7 +1152,7 @@ export function TaskModal({
             </div>
 
             {/* Show on card */}
-            <div>
+            <div style={{ flex: '1 1 180px', minWidth: 160, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
               <label
                 style={{
                   display: 'flex',
@@ -1231,7 +1161,7 @@ export function TaskModal({
                   cursor: 'pointer',
                 }}
               >
-                <span className="fb-label">Show on card</span>
+                <span className="fb-label">Show subtasks on card</span>
                 <input
                   type="checkbox"
                   checked={showSubtasksInline}
@@ -1253,18 +1183,48 @@ export function TaskModal({
                   style={{ width: 16, height: 16, cursor: 'pointer' }}
                 />
               </label>
-              <p
-                style={{
-                  margin: '3px 0 0',
-                  fontSize: 11,
-                  color: 'var(--text-tertiary)',
-                  lineHeight: 1.4,
-                }}
-              >
-                Expand subtask checklist on the board card.
-              </p>
             </div>
           </div>
+
+          {/* Description */}
+          <div style={{ borderTop: '1px solid var(--border)', paddingTop: 16 }}>
+            {showDescription ? (
+              <textarea
+                className="fb-textarea"
+                placeholder="Add a description…"
+                value={formValues.description}
+                onChange={(e) => updateField('description', e.target.value)}
+                disabled={isPending}
+                onBlur={() => {
+                  if (!formValues.description) setShowDescription(false);
+                }}
+                rows={4}
+                style={{ resize: 'vertical', width: '100%' }}
+                autoFocus={!formValues.description}
+              />
+            ) : (
+              <button
+                type="button"
+                className="fb-btn fb-btn--ghost"
+                onClick={() => setShowDescription(true)}
+                style={{ fontSize: 13, color: 'var(--text-secondary)' }}
+              >
+                <Icon name="plus" size={14} />
+                Add description
+              </button>
+            )}
+          </div>
+
+          {/* Subtasks (edit mode only) */}
+          {mode === 'edit' && task !== undefined && (
+            <div style={{ borderTop: '1px solid var(--border)', paddingTop: 16 }}>
+              <SubtaskSection
+                taskId={task.id}
+                initialSubtasks={task.subtasks ?? []}
+                modalIsPending={isPending}
+              />
+            </div>
+          )}
         </div>
 
         {/* Footer */}
