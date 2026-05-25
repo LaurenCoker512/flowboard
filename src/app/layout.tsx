@@ -15,6 +15,9 @@ const newsreader = Newsreader({
 export const metadata: Metadata = {
   title: "Flowboard",
   description: "Flexible task management for neurodivergent minds",
+  icons: {
+    icon: '/favicon.svg',
+  },
 };
 
 export default async function RootLayout({
