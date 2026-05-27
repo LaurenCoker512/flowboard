@@ -53,7 +53,7 @@ export function Segmented({ options, value, onChange, fullWidth = false }: Segme
             }}
           >
             {option.dot !== undefined && <ProjectDot color={option.dot} size={7} />}
-            {option.label}
+            <span style={{ lineHeight: 1 }}>{option.label}</span>
           </button>
         );
       })}

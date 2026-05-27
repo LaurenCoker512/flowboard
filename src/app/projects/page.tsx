@@ -10,7 +10,7 @@ export default async function ProjectsPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <NavBar />
-      <main style={{ flex: 1, padding: '28px 28px' }}>
+      <main style={{ flex: 1, padding: '28px 28px', maxWidth: 720, width: '100%', margin: '0 auto' }}>
         <ProjectsClient initialProjects={allProjects} />
       </main>
     </div>

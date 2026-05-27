@@ -157,7 +157,7 @@ function SortableTaskRow({
   };
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners} suppressHydrationWarning>
       <TaskRow task={task} isDragging={isDragging} onClick={onClick} />
     </div>
   );

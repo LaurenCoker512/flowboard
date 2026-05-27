@@ -3,7 +3,8 @@
 import { revalidatePath } from 'next/cache';
 import { db } from '@/db';
 import { projects, tasks } from '@/db/schema';
-import { eq, and, asc, gte } from 'drizzle-orm';
+import { eq, and, asc, gte, isNotNull } from 'drizzle-orm';
+import { getNextOccurrence } from '@/lib/recurrence';
 import type { RecurrenceRule } from '@/lib/recurrence';
 import { validateTaskTitle } from '@/lib/task-utils';
 
@@ -136,6 +137,34 @@ export async function createExceptionRecord(input: {
   return { error: null };
 }
 
+function findNearestRuleOccurrence(
+  rule: RecurrenceRule,
+  ruleStartDate: string,
+  targetDate: string,
+  windowDays: number,
+): string | null {
+  const target = new Date(targetDate + 'T00:00:00Z');
+  let current = new Date(ruleStartDate + 'T00:00:00Z');
+
+  // Safety: bound the search to avoid infinite loops
+  const limit = new Date(target.getTime() + (windowDays + 1) * 86400000);
+  let best: string | null = null;
+  let bestDiff = Infinity;
+
+  while (current <= limit) {
+    const diff = Math.abs(current.getTime() - target.getTime()) / 86400000;
+    if (diff <= windowDays && diff < bestDiff) {
+      best = current.toISOString().slice(0, 10);
+      bestDiff = diff;
+    }
+    const next = getNextOccurrence(rule, current);
+    if (next.getTime() <= current.getTime()) break;
+    current = next;
+  }
+
+  return best;
+}
+
 export async function updateAllFutureOccurrences(input: {
   masterId: string;
   occurrenceDate: string;
@@ -150,15 +179,40 @@ export async function updateAllFutureOccurrences(input: {
   isRecurring: boolean;
   recurrenceRule: RecurrenceRule | null;
 }): Promise<{ error: string | null }> {
-  // Delete future exceptions (recurringOccurrenceDate >= occurrenceDate on this master)
-  await db
-    .delete(tasks)
+  // Remap (or detach) future exceptions rather than deleting them, so that
+  // exceptions the user explicitly scheduled are preserved after a rule change.
+  const futureExceptions = await db
+    .select({ id: tasks.id, recurringOccurrenceDate: tasks.recurringOccurrenceDate })
+    .from(tasks)
     .where(
       and(
         eq(tasks.recurringMasterId, input.masterId),
+        isNotNull(tasks.recurringOccurrenceDate),
         gte(tasks.recurringOccurrenceDate, input.occurrenceDate),
       ),
     );
+
+  const ruleStartDate = input.date ?? input.occurrenceDate;
+
+  for (const exc of futureExceptions) {
+    if (exc.recurringOccurrenceDate === null) continue;
+    const nearestDate =
+      input.recurrenceRule !== null
+        ? findNearestRuleOccurrence(input.recurrenceRule, ruleStartDate, exc.recurringOccurrenceDate, 6)
+        : null;
+    if (nearestDate !== null) {
+      await db
+        .update(tasks)
+        .set({ recurringOccurrenceDate: nearestDate })
+        .where(eq(tasks.id, exc.id));
+    } else {
+      // No nearby new-rule occurrence — detach as standalone task
+      await db
+        .update(tasks)
+        .set({ recurringMasterId: null, recurringOccurrenceDate: null })
+        .where(eq(tasks.id, exc.id));
+    }
+  }
 
   // Update master
   const clearTimes = input.date === null || input.date === undefined;

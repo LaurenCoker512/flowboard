@@ -4,6 +4,7 @@ import "./globals.css";
 import { db } from "@/db";
 import { settings } from "@/db/schema";
 import { MobileTabBar } from "@/components/MobileTabBar";
+import { NavigationProgress } from "@/components/NavigationProgress";
 
 const newsreader = Newsreader({
   subsets: ["latin"],
@@ -35,6 +36,7 @@ export default async function RootLayout({
         />
       </head>
       <body className="min-h-full" data-density={density}>
+        <NavigationProgress />
         {children}
         <MobileTabBar />
       </body>

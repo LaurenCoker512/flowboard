@@ -294,7 +294,7 @@ export function ProjectsClient({ initialProjects }: { initialProjects: ProjectWi
   const taskLabel = (n: number) => (n === 1 ? '1 task' : `${n} tasks`);
 
   return (
-    <div style={{ maxWidth: 720 }}>
+    <div>
       <div
         style={{
           display: 'flex',
