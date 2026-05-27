@@ -36,22 +36,26 @@ export async function createTaskAction(
   const titleError = validateTaskTitle(input.title);
   if (titleError !== null) return { error: titleError };
 
-  await db.insert(tasks).values({
-    title: input.title.trim(),
-    projectId: input.projectId,
-    priority: input.priority,
-    status: input.status,
-    date: input.date ?? null,
-    startAt: input.startAt ?? null,
-    endAt: input.endAt ?? null,
-    description: input.description ?? null,
-    isRecurring: input.isRecurring ?? false,
-    recurrenceRule: (input.isRecurring ?? false) ? (input.recurrenceRule ?? null) : null,
-    showSubtasksInline: input.showSubtasksInline ?? false,
-  });
-
-  revalidateAll();
-  return { error: null };
+  try {
+    await db.insert(tasks).values({
+      title: input.title.trim(),
+      projectId: input.projectId,
+      priority: input.priority,
+      status: input.status,
+      date: input.date ?? null,
+      startAt: input.startAt ?? null,
+      endAt: input.endAt ?? null,
+      description: input.description ?? null,
+      isRecurring: input.isRecurring ?? false,
+      recurrenceRule: (input.isRecurring ?? false) ? (input.recurrenceRule ?? null) : null,
+      showSubtasksInline: input.showSubtasksInline ?? false,
+    });
+    revalidateAll();
+    return { error: null };
+  } catch (err) {
+    console.error('[createTaskAction]', err);
+    return { error: 'Something went wrong. Please try again.' };
+  }
 }
 
 export type UpdateTaskInput = CreateTaskInput & {
@@ -68,30 +72,39 @@ export async function updateTaskAction(
 
   const clearTimes = input.date === null || input.date === undefined;
 
-  await db
-    .update(tasks)
-    .set({
-      title: input.title.trim(),
-      projectId: input.projectId,
-      priority: input.priority,
-      status: input.status,
-      date: input.date ?? null,
-      startAt: clearTimes ? null : (input.startAt ?? null),
-      endAt: clearTimes ? null : (input.endAt ?? null),
-      description: input.description ?? null,
-      isRecurring: input.isRecurring ?? false,
-      recurrenceRule: (input.isRecurring ?? false) ? (input.recurrenceRule ?? null) : null,
-      updatedAt: new Date(),
-    })
-    .where(eq(tasks.id, input.id));
-
-  revalidateAll();
-  return { error: null };
+  try {
+    await db
+      .update(tasks)
+      .set({
+        title: input.title.trim(),
+        projectId: input.projectId,
+        priority: input.priority,
+        status: input.status,
+        date: input.date ?? null,
+        startAt: clearTimes ? null : (input.startAt ?? null),
+        endAt: clearTimes ? null : (input.endAt ?? null),
+        description: input.description ?? null,
+        isRecurring: input.isRecurring ?? false,
+        recurrenceRule: (input.isRecurring ?? false) ? (input.recurrenceRule ?? null) : null,
+        updatedAt: new Date(),
+      })
+      .where(eq(tasks.id, input.id));
+    revalidateAll();
+    return { error: null };
+  } catch (err) {
+    console.error('[updateTaskAction]', err);
+    return { error: 'Something went wrong. Please try again.' };
+  }
 }
 
 export async function deleteTaskAction(id: string): Promise<void> {
-  await db.delete(tasks).where(eq(tasks.id, id));
-  revalidateAll();
+  try {
+    await db.delete(tasks).where(eq(tasks.id, id));
+    revalidateAll();
+  } catch (err) {
+    console.error('[deleteTaskAction]', err);
+    throw err;
+  }
 }
 
 export async function getActiveProjects(): Promise<
@@ -119,22 +132,26 @@ export async function createExceptionRecord(input: {
   const titleError = validateTaskTitle(input.title);
   if (titleError !== null) return { error: titleError };
 
-  await db.insert(tasks).values({
-    title: input.title.trim(),
-    projectId: input.projectId,
-    priority: input.priority,
-    status: input.status,
-    date: input.date,
-    startAt: input.startAt,
-    endAt: input.endAt,
-    description: input.description,
-    isRecurring: false,
-    recurringMasterId: input.masterId,
-    recurringOccurrenceDate: input.occurrenceDate,
-  });
-
-  revalidateAll();
-  return { error: null };
+  try {
+    await db.insert(tasks).values({
+      title: input.title.trim(),
+      projectId: input.projectId,
+      priority: input.priority,
+      status: input.status,
+      date: input.date,
+      startAt: input.startAt,
+      endAt: input.endAt,
+      description: input.description,
+      isRecurring: false,
+      recurringMasterId: input.masterId,
+      recurringOccurrenceDate: input.occurrenceDate,
+    });
+    revalidateAll();
+    return { error: null };
+  } catch (err) {
+    console.error('[createExceptionRecord]', err);
+    return { error: 'Something went wrong. Please try again.' };
+  }
 }
 
 function findNearestRuleOccurrence(
@@ -179,60 +196,65 @@ export async function updateAllFutureOccurrences(input: {
   isRecurring: boolean;
   recurrenceRule: RecurrenceRule | null;
 }): Promise<{ error: string | null }> {
-  // Remap (or detach) future exceptions rather than deleting them, so that
-  // exceptions the user explicitly scheduled are preserved after a rule change.
-  const futureExceptions = await db
-    .select({ id: tasks.id, recurringOccurrenceDate: tasks.recurringOccurrenceDate })
-    .from(tasks)
-    .where(
-      and(
-        eq(tasks.recurringMasterId, input.masterId),
-        isNotNull(tasks.recurringOccurrenceDate),
-        gte(tasks.recurringOccurrenceDate, input.occurrenceDate),
-      ),
-    );
+  try {
+    // Remap (or detach) future exceptions rather than deleting them, so that
+    // exceptions the user explicitly scheduled are preserved after a rule change.
+    const futureExceptions = await db
+      .select({ id: tasks.id, recurringOccurrenceDate: tasks.recurringOccurrenceDate })
+      .from(tasks)
+      .where(
+        and(
+          eq(tasks.recurringMasterId, input.masterId),
+          isNotNull(tasks.recurringOccurrenceDate),
+          gte(tasks.recurringOccurrenceDate, input.occurrenceDate),
+        ),
+      );
 
-  const ruleStartDate = input.date ?? input.occurrenceDate;
+    const ruleStartDate = input.date ?? input.occurrenceDate;
 
-  for (const exc of futureExceptions) {
-    if (exc.recurringOccurrenceDate === null) continue;
-    const nearestDate =
-      input.recurrenceRule !== null
-        ? findNearestRuleOccurrence(input.recurrenceRule, ruleStartDate, exc.recurringOccurrenceDate, 6)
-        : null;
-    if (nearestDate !== null) {
-      await db
-        .update(tasks)
-        .set({ recurringOccurrenceDate: nearestDate })
-        .where(eq(tasks.id, exc.id));
-    } else {
-      // No nearby new-rule occurrence — detach as standalone task
-      await db
-        .update(tasks)
-        .set({ recurringMasterId: null, recurringOccurrenceDate: null })
-        .where(eq(tasks.id, exc.id));
+    for (const exc of futureExceptions) {
+      if (exc.recurringOccurrenceDate === null) continue;
+      const nearestDate =
+        input.recurrenceRule !== null
+          ? findNearestRuleOccurrence(input.recurrenceRule, ruleStartDate, exc.recurringOccurrenceDate, 6)
+          : null;
+      if (nearestDate !== null) {
+        await db
+          .update(tasks)
+          .set({ recurringOccurrenceDate: nearestDate })
+          .where(eq(tasks.id, exc.id));
+      } else {
+        // No nearby new-rule occurrence — detach as standalone task
+        await db
+          .update(tasks)
+          .set({ recurringMasterId: null, recurringOccurrenceDate: null })
+          .where(eq(tasks.id, exc.id));
+      }
     }
+
+    // Update master
+    const clearTimes = input.date === null || input.date === undefined;
+    await db
+      .update(tasks)
+      .set({
+        title: input.title.trim(),
+        projectId: input.projectId,
+        priority: input.priority,
+        status: input.status,
+        date: input.date ?? null,
+        startAt: clearTimes ? null : (input.startAt ?? null),
+        endAt: clearTimes ? null : (input.endAt ?? null),
+        description: input.description ?? null,
+        isRecurring: input.isRecurring,
+        recurrenceRule: input.isRecurring ? (input.recurrenceRule ?? null) : null,
+        updatedAt: new Date(),
+      })
+      .where(eq(tasks.id, input.masterId));
+
+    revalidateAll();
+    return { error: null };
+  } catch (err) {
+    console.error('[updateAllFutureOccurrences]', err);
+    return { error: 'Something went wrong. Please try again.' };
   }
-
-  // Update master
-  const clearTimes = input.date === null || input.date === undefined;
-  await db
-    .update(tasks)
-    .set({
-      title: input.title.trim(),
-      projectId: input.projectId,
-      priority: input.priority,
-      status: input.status,
-      date: input.date ?? null,
-      startAt: clearTimes ? null : (input.startAt ?? null),
-      endAt: clearTimes ? null : (input.endAt ?? null),
-      description: input.description ?? null,
-      isRecurring: input.isRecurring,
-      recurrenceRule: input.isRecurring ? (input.recurrenceRule ?? null) : null,
-      updatedAt: new Date(),
-    })
-    .where(eq(tasks.id, input.masterId));
-
-  revalidateAll();
-  return { error: null };
 }

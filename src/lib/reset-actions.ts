@@ -5,6 +5,7 @@ import { users, passwordResetTokens } from '@/db/schema';
 import { eq, and, gt, isNull } from 'drizzle-orm';
 import { hash } from 'bcryptjs';
 import { Resend } from 'resend';
+import { z } from 'zod';
 import { generateResetToken, hashToken } from './password-reset';
 
 export type ResetRequestState = {
@@ -23,7 +24,7 @@ export async function requestPasswordResetAction(
   formData: FormData,
 ): Promise<ResetRequestState> {
   const email = formData.get('email');
-  if (typeof email !== 'string' || !email.includes('@')) {
+  if (typeof email !== 'string' || !z.string().email().safeParse(email).success) {
     return { status: 'error', message: 'Please enter a valid email address.' };
   }
 
@@ -53,6 +54,10 @@ export async function requestPasswordResetAction(
         message: "If that email is registered, you'll receive a reset link shortly.",
         resetUrl,
       };
+    }
+
+    if (!process.env.RESEND_API_KEY) {
+      return { status: 'error', message: 'Email service is not configured.' };
     }
 
     const resend = new Resend(process.env.RESEND_API_KEY);

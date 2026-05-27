@@ -44,13 +44,17 @@ export async function createProjectAction(
   const colorError = validateProjectColor(color);
   if (colorError) return { error: colorError };
 
-  await db.insert(projects).values({
-    name: (name as string).trim(),
-    color: color as string,
-  });
-
-  revalidatePath('/projects');
-  return { error: null };
+  try {
+    await db.insert(projects).values({
+      name: (name as string).trim(),
+      color: color as string,
+    });
+    revalidatePath('/projects');
+    return { error: null };
+  } catch (err) {
+    console.error('[createProjectAction]', err);
+    return { error: 'Something went wrong. Please try again.' };
+  }
 }
 
 export async function updateProjectAction(
@@ -69,28 +73,47 @@ export async function updateProjectAction(
   const colorError = validateProjectColor(color);
   if (colorError) return { error: colorError };
 
-  await db
-    .update(projects)
-    .set({ name: (name as string).trim(), color: color as string })
-    .where(eq(projects.id, id));
-
-  revalidatePath('/projects');
-  return { error: null };
+  try {
+    await db
+      .update(projects)
+      .set({ name: (name as string).trim(), color: color as string })
+      .where(eq(projects.id, id));
+    revalidatePath('/projects');
+    return { error: null };
+  } catch (err) {
+    console.error('[updateProjectAction]', err);
+    return { error: 'Something went wrong. Please try again.' };
+  }
 }
 
 export async function archiveProjectAction(id: string): Promise<void> {
-  await db.update(projects).set({ isArchived: true }).where(eq(projects.id, id));
-  revalidatePath('/projects');
+  try {
+    await db.update(projects).set({ isArchived: true }).where(eq(projects.id, id));
+    revalidatePath('/projects');
+  } catch (err) {
+    console.error('[archiveProjectAction]', err);
+    throw err;
+  }
 }
 
 export async function restoreProjectAction(id: string): Promise<void> {
-  await db.update(projects).set({ isArchived: false }).where(eq(projects.id, id));
-  revalidatePath('/projects');
+  try {
+    await db.update(projects).set({ isArchived: false }).where(eq(projects.id, id));
+    revalidatePath('/projects');
+  } catch (err) {
+    console.error('[restoreProjectAction]', err);
+    throw err;
+  }
 }
 
 export async function deleteProjectAction(id: string): Promise<void> {
-  await db.delete(projects).where(eq(projects.id, id));
-  revalidatePath('/projects');
+  try {
+    await db.delete(projects).where(eq(projects.id, id));
+    revalidatePath('/projects');
+  } catch (err) {
+    console.error('[deleteProjectAction]', err);
+    throw err;
+  }
 }
 
 export async function createProjectInline(
@@ -103,13 +126,18 @@ export async function createProjectInline(
   const colorError = validateProjectColor(color);
   if (colorError) return { error: colorError };
 
-  const [row] = await db
-    .insert(projects)
-    .values({ name: name.trim(), color })
-    .returning({ id: projects.id, name: projects.name, color: projects.color });
+  try {
+    const [row] = await db
+      .insert(projects)
+      .values({ name: name.trim(), color })
+      .returning({ id: projects.id, name: projects.name, color: projects.color });
 
-  revalidatePath('/projects');
-  revalidatePath('/board');
-  revalidatePath('/tasks');
-  return row;
+    revalidatePath('/projects');
+    revalidatePath('/board');
+    revalidatePath('/tasks');
+    return row;
+  } catch (err) {
+    console.error('[createProjectInline]', err);
+    return { error: 'Something went wrong. Please try again.' };
+  }
 }

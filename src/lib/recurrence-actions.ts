@@ -202,6 +202,7 @@ export async function convertMissedOccurrence(taskId: string): Promise<void> {
 }
 
 export async function advanceNewDayTasks(): Promise<void> {
+  try {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -259,4 +260,8 @@ export async function advanceNewDayTasks(): Promise<void> {
   }
 
   revalidateAll();
+  } catch (err) {
+    console.error('[advanceNewDayTasks]', err);
+    throw err;
+  }
 }

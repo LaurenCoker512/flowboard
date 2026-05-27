@@ -35,23 +35,28 @@ export async function createSubtask(input: {
   if (!title) return { id: '', sortOrder: 0, error: 'Title is required.' };
   if (title.length > 255) return { id: '', sortOrder: 0, error: 'Title must be 255 characters or fewer.' };
 
-  const existing = await db
-    .select({ sortOrder: subtasks.sortOrder })
-    .from(subtasks)
-    .where(eq(subtasks.taskId, input.taskId))
-    .orderBy(asc(subtasks.sortOrder));
+  try {
+    const existing = await db
+      .select({ sortOrder: subtasks.sortOrder })
+      .from(subtasks)
+      .where(eq(subtasks.taskId, input.taskId))
+      .orderBy(asc(subtasks.sortOrder));
 
-  const sortOrder = existing.length > 0 ? (existing[existing.length - 1]!.sortOrder + 1) : 1;
+    const sortOrder = existing.length > 0 ? (existing[existing.length - 1]!.sortOrder + 1) : 1;
 
-  const [inserted] = await db
-    .insert(subtasks)
-    .values({ taskId: input.taskId, title, sortOrder })
-    .returning({ id: subtasks.id, sortOrder: subtasks.sortOrder });
+    const [inserted] = await db
+      .insert(subtasks)
+      .values({ taskId: input.taskId, title, sortOrder })
+      .returning({ id: subtasks.id, sortOrder: subtasks.sortOrder });
 
-  if (inserted === undefined) return { id: '', sortOrder: 0, error: 'Failed to create subtask.' };
+    if (inserted === undefined) return { id: '', sortOrder: 0, error: 'Failed to create subtask.' };
 
-  revalidateAll();
-  return { id: inserted.id, sortOrder: inserted.sortOrder, error: null };
+    revalidateAll();
+    return { id: inserted.id, sortOrder: inserted.sortOrder, error: null };
+  } catch (err) {
+    console.error('[createSubtask]', err);
+    return { id: '', sortOrder: 0, error: 'Something went wrong. Please try again.' };
+  }
 }
 
 export async function updateSubtask(input: {
@@ -74,14 +79,24 @@ export async function updateSubtask(input: {
 
   if (Object.keys(updates).length === 0) return { error: null };
 
-  await db.update(subtasks).set(updates).where(eq(subtasks.id, input.id));
-  revalidateAll();
-  return { error: null };
+  try {
+    await db.update(subtasks).set(updates).where(eq(subtasks.id, input.id));
+    revalidateAll();
+    return { error: null };
+  } catch (err) {
+    console.error('[updateSubtask]', err);
+    return { error: 'Something went wrong. Please try again.' };
+  }
 }
 
 export async function deleteSubtask(id: string): Promise<void> {
-  await db.delete(subtasks).where(eq(subtasks.id, id));
-  revalidateAll();
+  try {
+    await db.delete(subtasks).where(eq(subtasks.id, id));
+    revalidateAll();
+  } catch (err) {
+    console.error('[deleteSubtask]', err);
+    throw err;
+  }
 }
 
 export async function reorderSubtasks(
@@ -90,15 +105,19 @@ export async function reorderSubtasks(
 ): Promise<{ error: string | null }> {
   if (orderedIds.length === 0) return { error: null };
 
-  for (let i = 0; i < orderedIds.length; i++) {
-    await db
-      .update(subtasks)
-      .set({ sortOrder: i + 1 })
-      .where(and(eq(subtasks.id, orderedIds[i]!), eq(subtasks.taskId, taskId)));
+  try {
+    for (let i = 0; i < orderedIds.length; i++) {
+      await db
+        .update(subtasks)
+        .set({ sortOrder: i + 1 })
+        .where(and(eq(subtasks.id, orderedIds[i]!), eq(subtasks.taskId, taskId)));
+    }
+    revalidateAll();
+    return { error: null };
+  } catch (err) {
+    console.error('[reorderSubtasks]', err);
+    return { error: 'Something went wrong. Please try again.' };
   }
-
-  revalidateAll();
-  return { error: null };
 }
 
 export async function updateShowSubtasksInline(input: {
@@ -109,18 +128,21 @@ export async function updateShowSubtasksInline(input: {
   const now = new Date();
   const targetId = input.masterId ?? input.taskId;
 
-  // Update the master (or non-recurring) task
-  await db
-    .update(tasks)
-    .set({ showSubtasksInline: input.value, updatedAt: now })
-    .where(eq(tasks.id, targetId));
+  try {
+    await db
+      .update(tasks)
+      .set({ showSubtasksInline: input.value, updatedAt: now })
+      .where(eq(tasks.id, targetId));
 
-  // Propagate to all existing exception records linked to this master
-  await db
-    .update(tasks)
-    .set({ showSubtasksInline: input.value, updatedAt: now })
-    .where(eq(tasks.recurringMasterId, targetId));
+    await db
+      .update(tasks)
+      .set({ showSubtasksInline: input.value, updatedAt: now })
+      .where(eq(tasks.recurringMasterId, targetId));
 
-  revalidateAll();
-  return { error: null };
+    revalidateAll();
+    return { error: null };
+  } catch (err) {
+    console.error('[updateShowSubtasksInline]', err);
+    return { error: 'Something went wrong. Please try again.' };
+  }
 }

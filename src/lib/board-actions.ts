@@ -96,82 +96,93 @@ export async function updateTaskStatus(
   const now = new Date();
   let recurringNextDate: string | null = null;
 
-  if (newStatus === 'done') {
-    const [task] = await db
-      .select({
-        isRecurring: tasks.isRecurring,
-        recurrenceRule: tasks.recurrenceRule,
-        date: tasks.date,
+  try {
+    if (newStatus === 'done') {
+      const [task] = await db
+        .select({
+          isRecurring: tasks.isRecurring,
+          recurrenceRule: tasks.recurrenceRule,
+          date: tasks.date,
+        })
+        .from(tasks)
+        .where(eq(tasks.id, id));
+
+      if (task !== undefined && task.isRecurring && task.recurrenceRule !== null && task.date !== null) {
+        const rule = task.recurrenceRule as RecurrenceRule;
+        const nextDate = getNextOccurrence(rule, new Date(task.date));
+        recurringNextDate = nextDate.toISOString().slice(0, 10);
+      }
+    }
+
+    await db
+      .update(tasks)
+      .set({
+        status: newStatus,
+        completedAt: newStatus === 'done' ? now : null,
+        updatedAt: now,
       })
-      .from(tasks)
       .where(eq(tasks.id, id));
 
-    if (task !== undefined && task.isRecurring && task.recurrenceRule !== null && task.date !== null) {
-      const rule = task.recurrenceRule as RecurrenceRule;
-      const nextDate = getNextOccurrence(rule, new Date(task.date));
-      recurringNextDate = nextDate.toISOString().slice(0, 10);
-    }
+    revalidateAll();
+    return { recurringNextDate };
+  } catch (err) {
+    console.error('[updateTaskStatus]', err);
+    return { recurringNextDate: null };
   }
-
-  await db
-    .update(tasks)
-    .set({
-      status: newStatus,
-      completedAt: newStatus === 'done' ? now : null,
-      updatedAt: now,
-    })
-    .where(eq(tasks.id, id));
-
-  revalidateAll();
-  return { recurringNextDate };
 }
 
 export async function clearSingleDoneTask(taskId: string): Promise<void> {
-  const [task] = await db
-    .select({
-      id: tasks.id,
-      title: tasks.title,
-      date: tasks.date,
-      startAt: tasks.startAt,
-      endAt: tasks.endAt,
-      isRecurring: tasks.isRecurring,
-      completedAt: tasks.completedAt,
-      projectId: tasks.projectId,
-      recurringMasterId: tasks.recurringMasterId,
-      projectName: projects.name,
-      projectColor: projects.color,
-    })
-    .from(tasks)
-    .innerJoin(projects, eq(tasks.projectId, projects.id))
-    .where(eq(tasks.id, taskId));
-
-  if (task === undefined) return;
-
-  if (task.isRecurring || task.recurringMasterId !== null) {
-    await advanceRecurringTask(taskId);
-  } else {
-    await db.insert(taskCompletions).values({
-      taskId: task.id,
-      title: task.title,
-      projectId: task.projectId,
-      projectName: task.projectName,
-      projectColor: task.projectColor,
-      completedAt: task.completedAt ?? new Date(),
-      date: task.date,
-      startAt: task.startAt,
-      endAt: task.endAt,
-      isRecurring: task.isRecurring,
-    });
-    await db
-      .update(tasks)
-      .set({ isArchived: true, updatedAt: new Date() })
+  try {
+    const [task] = await db
+      .select({
+        id: tasks.id,
+        title: tasks.title,
+        date: tasks.date,
+        startAt: tasks.startAt,
+        endAt: tasks.endAt,
+        isRecurring: tasks.isRecurring,
+        completedAt: tasks.completedAt,
+        projectId: tasks.projectId,
+        recurringMasterId: tasks.recurringMasterId,
+        projectName: projects.name,
+        projectColor: projects.color,
+      })
+      .from(tasks)
+      .innerJoin(projects, eq(tasks.projectId, projects.id))
       .where(eq(tasks.id, taskId));
-  }
 
-  revalidateAll();
+    if (task === undefined) return;
+
+    if (task.isRecurring || task.recurringMasterId !== null) {
+      await advanceRecurringTask(taskId);
+    } else {
+      await db.insert(taskCompletions).values({
+        taskId: task.id,
+        title: task.title,
+        projectId: task.projectId,
+        projectName: task.projectName,
+        projectColor: task.projectColor,
+        completedAt: task.completedAt ?? new Date(),
+        date: task.date,
+        startAt: task.startAt,
+        endAt: task.endAt,
+        isRecurring: task.isRecurring,
+      });
+      await db
+        .update(tasks)
+        .set({ isArchived: true, updatedAt: new Date() })
+        .where(eq(tasks.id, taskId));
+    }
+
+    revalidateAll();
+  } catch (err) {
+    console.error('[clearSingleDoneTask]', err);
+    throw err;
+  }
 }
 
 export async function clearDone(): Promise<void> {
+  try {
   // Snapshot non-recurring, non-exception done tasks before archiving
   const nonRecurringDone = await db
     .select({
@@ -255,4 +266,8 @@ export async function clearDone(): Promise<void> {
   }
 
   revalidateAll();
+  } catch (err) {
+    console.error('[clearDone]', err);
+    throw err;
+  }
 }
