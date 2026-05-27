@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { db } from '@/db';
-import { projects, tasks, subtasks } from '@/db/schema';
+import { projects, tasks, subtasks, taskCompletions } from '@/db/schema';
 import { eq, and, isNull, isNotNull, asc } from 'drizzle-orm';
 import { getNextOccurrence } from '@/lib/recurrence';
 import { advanceRecurringTask } from '@/lib/recurrence-actions';
@@ -29,7 +29,7 @@ export type BoardTaskRow = {
   subtasks: SubtaskData[];
 };
 
-const BOARD_PATHS = ['/board', '/tasks', '/projects'] as const;
+const BOARD_PATHS = ['/board', '/tasks', '/projects', '/history'] as const;
 
 function revalidateAll(): void {
   for (const path of BOARD_PATHS) {
@@ -126,7 +126,95 @@ export async function updateTaskStatus(
   return { recurringNextDate };
 }
 
+export async function clearSingleDoneTask(taskId: string): Promise<void> {
+  const [task] = await db
+    .select({
+      id: tasks.id,
+      title: tasks.title,
+      date: tasks.date,
+      startAt: tasks.startAt,
+      endAt: tasks.endAt,
+      isRecurring: tasks.isRecurring,
+      completedAt: tasks.completedAt,
+      projectId: tasks.projectId,
+      recurringMasterId: tasks.recurringMasterId,
+      projectName: projects.name,
+      projectColor: projects.color,
+    })
+    .from(tasks)
+    .innerJoin(projects, eq(tasks.projectId, projects.id))
+    .where(eq(tasks.id, taskId));
+
+  if (task === undefined) return;
+
+  if (task.isRecurring || task.recurringMasterId !== null) {
+    await advanceRecurringTask(taskId);
+  } else {
+    await db.insert(taskCompletions).values({
+      taskId: task.id,
+      title: task.title,
+      projectId: task.projectId,
+      projectName: task.projectName,
+      projectColor: task.projectColor,
+      completedAt: task.completedAt ?? new Date(),
+      date: task.date,
+      startAt: task.startAt,
+      endAt: task.endAt,
+      isRecurring: task.isRecurring,
+    });
+    await db
+      .update(tasks)
+      .set({ isArchived: true, updatedAt: new Date() })
+      .where(eq(tasks.id, taskId));
+  }
+
+  revalidateAll();
+}
+
 export async function clearDone(): Promise<void> {
+  // Snapshot non-recurring, non-exception done tasks before archiving
+  const nonRecurringDone = await db
+    .select({
+      id: tasks.id,
+      title: tasks.title,
+      date: tasks.date,
+      startAt: tasks.startAt,
+      endAt: tasks.endAt,
+      isRecurring: tasks.isRecurring,
+      completedAt: tasks.completedAt,
+      projectId: tasks.projectId,
+      projectName: projects.name,
+      projectColor: projects.color,
+    })
+    .from(tasks)
+    .innerJoin(projects, eq(tasks.projectId, projects.id))
+    .where(
+      and(
+        eq(tasks.status, 'done'),
+        eq(tasks.isRecurring, false),
+        isNull(tasks.recurringMasterId),
+        eq(tasks.isArchived, false),
+      ),
+    );
+
+  const toSnapshot = nonRecurringDone.filter((t) => t.completedAt !== null);
+  if (toSnapshot.length > 0) {
+    await db.insert(taskCompletions).values(
+      toSnapshot.map((t) => ({
+        taskId: t.id,
+        title: t.title,
+        projectId: t.projectId,
+        projectName: t.projectName,
+        projectColor: t.projectColor,
+        completedAt: t.completedAt!,
+        date: t.date,
+        startAt: t.startAt,
+        endAt: t.endAt,
+        isRecurring: t.isRecurring,
+      })),
+    );
+  }
+
   // Archive non-recurring, non-exception done tasks
   await db
     .update(tasks)
