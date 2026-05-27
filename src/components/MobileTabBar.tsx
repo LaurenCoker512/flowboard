@@ -47,12 +47,13 @@ const TAB_RIGHT: Array<{ id: string; label: string; href: string; icon: React.Re
     ),
   },
   {
-    id: 'projects',
-    label: 'Projects',
-    href: '/projects',
+    id: 'history',
+    label: 'History',
+    href: '/history',
     icon: (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" stroke="currentColor" strokeWidth="1.5" />
+        <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M12 7v5l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
       </svg>
     ),
   },

@@ -20,6 +20,7 @@ type TaskCardProps = {
   showTodayChip?: boolean;
   onClick?: () => void;
   onSubtaskToggle?: (subtaskId: string, isCompleted: boolean) => void;
+  onClear?: () => void;
 };
 
 function formatTime(date: Date): string {
@@ -38,6 +39,7 @@ export function TaskCard({
   showTodayChip = false,
   onClick,
   onSubtaskToggle,
+  onClear,
 }: TaskCardProps) {
   const priorityColor = PRIORITY_COLORS[task.priority].color;
   const isAppointment = task.startAt !== null;
@@ -220,6 +222,51 @@ export function TaskCard({
           </span>
         )}
       </div>
+
+      {onClear !== undefined && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onClear();
+          }}
+          aria-label="Clear task"
+          title="Clear task"
+          style={{
+            position: 'absolute',
+            top: 6,
+            right: 6,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 20,
+            height: 20,
+            borderRadius: 4,
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            color: 'var(--text-tertiary)',
+            opacity: 0,
+            transition: 'opacity 0.1s ease, background 0.1s ease',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.opacity = '1';
+            e.currentTarget.style.background = 'var(--bg-subtle)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.opacity = '0';
+            e.currentTarget.style.background = 'none';
+          }}
+          onFocus={(e) => {
+            e.currentTarget.style.opacity = '1';
+          }}
+          onBlur={(e) => {
+            e.currentTarget.style.opacity = '0';
+          }}
+        >
+          <Icon name="x" size={11} stroke={1.8} />
+        </button>
+      )}
     </div>
   );
 }

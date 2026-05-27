@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { id: 'week', label: 'Week', href: '/week' },
   { id: 'month', label: 'Month', href: '/month' },
   { id: 'tasks', label: 'All tasks', href: '/tasks' },
+  { id: 'history', label: 'History', href: '/history' },
   { id: 'projects', label: 'Projects', href: '/projects' },
 ] as const;
 

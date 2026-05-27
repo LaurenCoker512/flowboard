@@ -5,8 +5,10 @@ import {
   DndContext,
   DragOverlay,
   PointerSensor,
+  pointerWithin,
   useSensor,
   useSensors,
+  useDroppable,
   type DragEndEvent,
   type DragStartEvent,
 } from '@dnd-kit/core';
@@ -26,7 +28,7 @@ import {
   getTodayString,
   DONE_CAP,
 } from '@/lib/board-utils';
-import { updateTaskStatus, clearDone } from '@/lib/board-actions';
+import { updateTaskStatus, clearDone, clearSingleDoneTask } from '@/lib/board-actions';
 import { updateSubtask } from '@/lib/subtask-actions';
 import { advanceNewDayTasks } from '@/lib/recurrence-actions';
 import { parseBacklogOpen } from '@/lib/backlog-utils';
@@ -77,16 +79,17 @@ type SortableCardProps = {
   showTodayChip?: boolean;
   onCardClick: (task: BoardTask) => void;
   onSubtaskToggle: (taskId: string, subtaskId: string, isCompleted: boolean) => void;
+  onClear?: (taskId: string) => void;
 };
 
-function SortableCard({ task, muted, showTodayChip, onCardClick, onSubtaskToggle }: SortableCardProps) {
+function SortableCard({ task, muted, showTodayChip, onCardClick, onSubtaskToggle, onClear }: SortableCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: task.id,
   });
 
   const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
+    transform: isDragging ? undefined : CSS.Transform.toString(transform),
+    transition: isDragging ? undefined : transition,
   };
 
   return (
@@ -98,6 +101,7 @@ function SortableCard({ task, muted, showTodayChip, onCardClick, onSubtaskToggle
         showTodayChip={showTodayChip}
         onClick={() => onCardClick(task)}
         onSubtaskToggle={(subtaskId, isCompleted) => onSubtaskToggle(task.id, subtaskId, isCompleted)}
+        onClear={onClear !== undefined ? () => onClear(task.id) : undefined}
       />
     </div>
   );
@@ -111,6 +115,7 @@ type ColumnProps = {
   children: React.ReactNode;
   isEmpty: boolean;
   emptyMessage: string;
+  droppableRef?: React.RefCallback<HTMLDivElement>;
 };
 
 function BoardColumn({
@@ -121,6 +126,7 @@ function BoardColumn({
   children,
   isEmpty,
   emptyMessage,
+  droppableRef,
 }: ColumnProps) {
   return (
     <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
@@ -186,6 +192,7 @@ function BoardColumn({
         )}
       </div>
       <div
+        ref={droppableRef}
         style={{
           flex: 1,
           minHeight: 0,
@@ -235,10 +242,27 @@ function BoardColumn({
 const DRAGGABLE_STATUSES: Status[] = ['up_next', 'in_progress', 'done'];
 
 function getColumnStatus(columnId: string): Status | null {
-  if (columnId === 'up_next' || columnId === 'in_progress' || columnId === 'done') {
-    return columnId;
+  const base = columnId.endsWith('_mobile') ? columnId.slice(0, -7) : columnId;
+  if (base === 'up_next' || base === 'in_progress' || base === 'done') {
+    return base as Status;
   }
   return null;
+}
+
+type DroppableSortableColumnProps = Omit<ColumnProps, 'droppableRef'> & {
+  status: Status;
+  items: string[];
+  droppableId?: string;
+};
+
+function DroppableSortableColumn({ status, items, droppableId, ...columnProps }: DroppableSortableColumnProps) {
+  const id = droppableId ?? status;
+  const { setNodeRef } = useDroppable({ id });
+  return (
+    <SortableContext items={items} strategy={verticalListSortingStrategy} id={id}>
+      <BoardColumn droppableRef={setNodeRef} {...columnProps} />
+    </SortableContext>
+  );
 }
 
 const LAST_OPENED_KEY = 'flowboard:lastOpenedDate';
@@ -264,7 +288,8 @@ export function BoardClient({ initialTasks, initialBacklogTasks, projects, backl
 
   type OptimisticUpdate =
     | { type: 'status'; id: string; newStatus: Status }
-    | { type: 'subtask'; taskId: string; subtaskId: string; isCompleted: boolean };
+    | { type: 'subtask'; taskId: string; subtaskId: string; isCompleted: boolean }
+    | { type: 'remove'; id: string };
 
   const [optimisticTasks, updateOptimisticTasks] = useOptimistic(
     initialTasks.map(rowToTask),
@@ -278,6 +303,9 @@ export function BoardClient({ initialTasks, initialBacklogTasks, projects, backl
             completedAt: update.newStatus === 'done' ? new Date() : null,
           };
         });
+      }
+      if (update.type === 'remove') {
+        return current.filter((task) => task.id !== update.id);
       }
       return current.map((task) => {
         if (task.id !== update.taskId) return task;
@@ -420,6 +448,13 @@ export function BoardClient({ initialTasks, initialBacklogTasks, projects, backl
     });
   }
 
+  function handleClearSingleTask(taskId: string) {
+    startTransition(async () => {
+      updateOptimisticTasks({ type: 'remove', id: taskId });
+      await clearSingleDoneTask(taskId);
+    });
+  }
+
   function handleSubtaskToggle(taskId: string, subtaskId: string, isCompleted: boolean) {
     startTransition(async () => {
       updateOptimisticTasks({ type: 'subtask', taskId, subtaskId, isCompleted });
@@ -509,7 +544,7 @@ export function BoardClient({ initialTasks, initialBacklogTasks, projects, backl
       )}
 
       <div style={{ flex: 1, minHeight: 0, display: 'flex', overflow: 'hidden' }}>
-        <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+        <DndContext id="board" sensors={sensors} collisionDetection={pointerWithin} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
           <div
             style={{
               flex: 1,
@@ -537,81 +572,82 @@ export function BoardClient({ initialTasks, initialBacklogTasks, projects, backl
                 ))}
               </BoardColumn>
 
-              <SortableContext items={upNextIds} strategy={verticalListSortingStrategy} id="up_next">
-                <BoardColumn
-                  title="What's next"
-                  count={columns.upNext.length}
-                  accentColor="var(--accent)"
-                  isEmpty={columns.upNext.length === 0}
-                  emptyMessage="Nothing up next. Enjoy the calm."
-                >
-                  {columns.upNext.map((task) => (
-                    <SortableCard
-                      key={task.id}
-                      task={task}
-                      showTodayChip={task.promoted === true}
-                      onCardClick={handleCardClick}
-                      onSubtaskToggle={handleSubtaskToggle}
-                    />
-                  ))}
-                </BoardColumn>
-              </SortableContext>
+              <DroppableSortableColumn
+                status="up_next"
+                items={upNextIds}
+                title="What's next"
+                count={columns.upNext.length}
+                accentColor="var(--accent)"
+                isEmpty={columns.upNext.length === 0}
+                emptyMessage="Nothing up next. Enjoy the calm."
+              >
+                {columns.upNext.map((task) => (
+                  <SortableCard
+                    key={task.id}
+                    task={task}
+                    showTodayChip={task.promoted === true}
+                    onCardClick={handleCardClick}
+                    onSubtaskToggle={handleSubtaskToggle}
+                  />
+                ))}
+              </DroppableSortableColumn>
 
-              <SortableContext items={inProgressIds} strategy={verticalListSortingStrategy} id="in_progress">
-                <BoardColumn
-                  title="In progress"
-                  count={columns.inProgress.length}
-                  accentColor="var(--p-fun)"
-                  isEmpty={columns.inProgress.length === 0}
-                  emptyMessage="Nothing in progress yet."
-                >
-                  {columns.inProgress.map((task) => (
-                    <SortableCard
-                      key={task.id}
-                      task={task}
-                      onCardClick={handleCardClick}
-                      onSubtaskToggle={handleSubtaskToggle}
-                    />
-                  ))}
-                </BoardColumn>
-              </SortableContext>
+              <DroppableSortableColumn
+                status="in_progress"
+                items={inProgressIds}
+                title="In progress"
+                count={columns.inProgress.length}
+                accentColor="var(--p-fun)"
+                isEmpty={columns.inProgress.length === 0}
+                emptyMessage="Nothing in progress yet."
+              >
+                {columns.inProgress.map((task) => (
+                  <SortableCard
+                    key={task.id}
+                    task={task}
+                    onCardClick={handleCardClick}
+                    onSubtaskToggle={handleSubtaskToggle}
+                  />
+                ))}
+              </DroppableSortableColumn>
 
-              <SortableContext items={doneIds} strategy={verticalListSortingStrategy} id="done">
-                <BoardColumn
-                  title="Done"
-                  count={columns.done.length}
-                  accentColor="var(--text-tertiary)"
-                  action={
-                    columns.done.length > 0
-                      ? { label: 'Clear done', onClick: handleClearDone }
-                      : undefined
-                  }
-                  isEmpty={columns.done.length === 0}
-                  emptyMessage="Nothing done yet today."
-                >
-                  {columns.done.map((task) => (
-                    <SortableCard
-                      key={task.id}
-                      task={task}
-                      muted
-                      onCardClick={handleCardClick}
-                      onSubtaskToggle={handleSubtaskToggle}
-                    />
-                  ))}
-                  {columns.doneTotal > DONE_CAP && (
-                    <div
-                      style={{
-                        textAlign: 'center',
-                        fontSize: 12,
-                        color: 'var(--text-tertiary)',
-                        padding: '6px 0',
-                      }}
-                    >
-                      +{columns.doneTotal - DONE_CAP} more
-                    </div>
-                  )}
-                </BoardColumn>
-              </SortableContext>
+              <DroppableSortableColumn
+                status="done"
+                items={doneIds}
+                title="Done"
+                count={columns.done.length}
+                accentColor="var(--text-tertiary)"
+                action={
+                  columns.done.length > 0
+                    ? { label: 'Clear done', onClick: handleClearDone }
+                    : undefined
+                }
+                isEmpty={columns.done.length === 0}
+                emptyMessage="Nothing done yet today."
+              >
+                {columns.done.map((task) => (
+                  <SortableCard
+                    key={task.id}
+                    task={task}
+                    muted
+                    onCardClick={handleCardClick}
+                    onSubtaskToggle={handleSubtaskToggle}
+                    onClear={handleClearSingleTask}
+                  />
+                ))}
+                {columns.doneTotal > DONE_CAP && (
+                  <div
+                    style={{
+                      textAlign: 'center',
+                      fontSize: 12,
+                      color: 'var(--text-tertiary)',
+                      padding: '6px 0',
+                    }}
+                  >
+                    +{columns.doneTotal - DONE_CAP} more
+                  </div>
+                )}
+              </DroppableSortableColumn>
             </div>
 
             {/* Mobile single-column view */}
@@ -642,90 +678,85 @@ export function BoardClient({ initialTasks, initialBacklogTasks, projects, backl
                 </BoardColumn>
               )}
               {mobileColumn === 'up_next' && (
-                <SortableContext items={upNextIds} strategy={verticalListSortingStrategy} id="up_next_mobile">
-                  <BoardColumn
-                    title="What's next"
-                    count={columns.upNext.length}
-                    accentColor="var(--accent)"
-                    isEmpty={columns.upNext.length === 0}
-                    emptyMessage="Nothing up next. Enjoy the calm."
-                  >
-                    {columns.upNext.map((task) => (
-                      <SortableCard
-                        key={task.id}
-                        task={task}
-                        showTodayChip={task.promoted === true}
-                        onCardClick={handleCardClick}
-                        onSubtaskToggle={handleSubtaskToggle}
-                      />
-                    ))}
-                  </BoardColumn>
-                </SortableContext>
+                <BoardColumn
+                  title="What's next"
+                  count={columns.upNext.length}
+                  accentColor="var(--accent)"
+                  isEmpty={columns.upNext.length === 0}
+                  emptyMessage="Nothing up next. Enjoy the calm."
+                >
+                  {columns.upNext.map((task) => (
+                    <TaskCard
+                      key={task.id}
+                      task={task}
+                      showTodayChip={task.promoted === true}
+                      onClick={() => handleCardClick(task)}
+                      onSubtaskToggle={(subtaskId, isCompleted) => handleSubtaskToggle(task.id, subtaskId, isCompleted)}
+                    />
+                  ))}
+                </BoardColumn>
               )}
               {mobileColumn === 'in_progress' && (
-                <SortableContext items={inProgressIds} strategy={verticalListSortingStrategy} id="in_progress_mobile">
-                  <BoardColumn
-                    title="In progress"
-                    count={columns.inProgress.length}
-                    accentColor="var(--p-fun)"
-                    isEmpty={columns.inProgress.length === 0}
-                    emptyMessage="Nothing in progress yet."
-                  >
-                    {columns.inProgress.map((task) => (
-                      <SortableCard
-                        key={task.id}
-                        task={task}
-                        onCardClick={handleCardClick}
-                        onSubtaskToggle={handleSubtaskToggle}
-                      />
-                    ))}
-                  </BoardColumn>
-                </SortableContext>
+                <BoardColumn
+                  title="In progress"
+                  count={columns.inProgress.length}
+                  accentColor="var(--p-fun)"
+                  isEmpty={columns.inProgress.length === 0}
+                  emptyMessage="Nothing in progress yet."
+                >
+                  {columns.inProgress.map((task) => (
+                    <TaskCard
+                      key={task.id}
+                      task={task}
+                      onClick={() => handleCardClick(task)}
+                      onSubtaskToggle={(subtaskId, isCompleted) => handleSubtaskToggle(task.id, subtaskId, isCompleted)}
+                    />
+                  ))}
+                </BoardColumn>
               )}
               {mobileColumn === 'done' && (
-                <SortableContext items={doneIds} strategy={verticalListSortingStrategy} id="done_mobile">
-                  <BoardColumn
-                    title="Done"
-                    count={columns.done.length}
-                    accentColor="var(--text-tertiary)"
-                    action={
-                      columns.done.length > 0
-                        ? { label: 'Clear done', onClick: handleClearDone }
-                        : undefined
-                    }
-                    isEmpty={columns.done.length === 0}
-                    emptyMessage="Nothing done yet today."
-                  >
-                    {columns.done.map((task) => (
-                      <SortableCard
-                        key={task.id}
-                        task={task}
-                        muted
-                        onCardClick={handleCardClick}
-                        onSubtaskToggle={handleSubtaskToggle}
-                      />
-                    ))}
-                    {columns.doneTotal > DONE_CAP && (
-                      <div
-                        style={{
-                          textAlign: 'center',
-                          fontSize: 12,
-                          color: 'var(--text-tertiary)',
-                          padding: '6px 0',
-                        }}
-                      >
-                        +{columns.doneTotal - DONE_CAP} more
-                      </div>
-                    )}
-                  </BoardColumn>
-                </SortableContext>
+                <BoardColumn
+                  title="Done"
+                  count={columns.done.length}
+                  accentColor="var(--text-tertiary)"
+                  action={
+                    columns.done.length > 0
+                      ? { label: 'Clear done', onClick: handleClearDone }
+                      : undefined
+                  }
+                  isEmpty={columns.done.length === 0}
+                  emptyMessage="Nothing done yet today."
+                >
+                  {columns.done.map((task) => (
+                    <TaskCard
+                      key={task.id}
+                      task={task}
+                      muted
+                      onClick={() => handleCardClick(task)}
+                      onSubtaskToggle={(subtaskId, isCompleted) => handleSubtaskToggle(task.id, subtaskId, isCompleted)}
+                      onClear={() => handleClearSingleTask(task.id)}
+                    />
+                  ))}
+                  {columns.doneTotal > DONE_CAP && (
+                    <div
+                      style={{
+                        textAlign: 'center',
+                        fontSize: 12,
+                        color: 'var(--text-tertiary)',
+                        padding: '6px 0',
+                      }}
+                    >
+                      +{columns.doneTotal - DONE_CAP} more
+                    </div>
+                  )}
+                </BoardColumn>
               )}
             </div>
           </div>
 
           <DragOverlay>
             {activeTask !== null && (
-              <TaskCard task={activeTask} isDragging />
+              <TaskCard task={activeTask} />
             )}
           </DragOverlay>
         </DndContext>
