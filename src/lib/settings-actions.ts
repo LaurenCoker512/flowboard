@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { auth } from '@/auth';
 import { db } from '@/db';
 import { projects, tasks, subtasks, settings } from '@/db/schema';
 import { and, eq, lt, asc } from 'drizzle-orm';
@@ -22,12 +23,19 @@ export type ExportData = {
 };
 
 export async function getSettings(): Promise<Settings | null> {
-  const [row] = await db.select().from(settings).limit(1);
+  const session = await auth();
+  if (session === null || session.user?.id === undefined) return null;
+  const [row] = await db.select().from(settings).where(eq(settings.userId, session.user.id));
   return row ?? null;
 }
 
 export async function updateSettings(input: SettingsUpdate): Promise<{ error: string | null }> {
-  const [existing] = await db.select({ id: settings.id }).from(settings).limit(1);
+  const session = await auth();
+  if (session === null || session.user?.id === undefined) return { error: 'Not authenticated.' };
+  const [existing] = await db
+    .select({ id: settings.id })
+    .from(settings)
+    .where(eq(settings.userId, session.user.id));
   if (existing === undefined) return { error: 'No settings row found.' };
 
   await db

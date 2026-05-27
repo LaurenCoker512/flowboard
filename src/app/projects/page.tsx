@@ -1,3 +1,5 @@
+import { redirect } from 'next/navigation';
+import { auth } from '@/auth';
 import { NavBar } from '@/components/NavBar';
 import { getProjectsWithTaskCounts } from '@/lib/project-actions';
 import { ProjectsClient } from './ProjectsClient';
@@ -5,6 +7,11 @@ import { ProjectsClient } from './ProjectsClient';
 export const metadata = { title: 'Projects — Flowboard' };
 
 export default async function ProjectsPage() {
+  const session = await auth();
+  if (session === null || session.user === undefined) {
+    redirect('/login');
+  }
+
   const allProjects = await getProjectsWithTaskCounts();
 
   return (

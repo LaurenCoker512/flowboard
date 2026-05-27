@@ -53,7 +53,8 @@ export async function getCompletionHistory(): Promise<CompletionRecord[]> {
       isRecurring: taskCompletions.isRecurring,
     })
     .from(taskCompletions)
-    .orderBy(desc(taskCompletions.completedAt));
+    .orderBy(desc(taskCompletions.completedAt))
+    .limit(1000);
 }
 
 export async function getTaskForHistory(taskId: string): Promise<HistoryTask | null> {

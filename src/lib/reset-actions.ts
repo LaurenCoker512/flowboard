@@ -44,7 +44,11 @@ export async function requestPasswordResetAction(
       expiresAt,
     });
 
-    const baseUrl = process.env.NEXTAUTH_URL ?? 'http://localhost:3000';
+    const baseUrl = process.env.NEXTAUTH_URL;
+    if (!baseUrl) {
+      console.error('[resetPasswordAction] NEXTAUTH_URL is not set');
+      return { status: 'error', message: 'Server configuration error. Please contact support.' };
+    }
     const resetUrl = `${baseUrl}/reset-password?token=${raw}`;
 
     if (process.env.NODE_ENV !== 'production') {
