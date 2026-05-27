@@ -52,6 +52,9 @@ export default async function BoardPage() {
     (task) => task.status === 'backlog' && !task.isArchived && task.date !== today,
   ).length;
 
+  // Exclude today's backlog tasks from the Later panel — they're already promoted onto the board
+  const laterTasks = backlogTaskRows.filter((task) => task.date !== today);
+
   return (
     <div
       style={{
@@ -64,7 +67,7 @@ export default async function BoardPage() {
       <NavBar />
       <BoardClient
         initialTasks={taskRows}
-        initialBacklogTasks={backlogTaskRows}
+        initialBacklogTasks={laterTasks}
         projects={projects}
         backlogCount={backlogCount}
       />

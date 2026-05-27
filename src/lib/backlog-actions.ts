@@ -13,6 +13,7 @@ export type BacklogTaskRow = {
   projectColor: string;
   priority: 'must_do' | 'can_wait' | 'fun';
   isRecurring: boolean;
+  date: string | null;
 };
 
 export async function getBacklogTasks(): Promise<BacklogTaskRow[]> {
@@ -25,6 +26,7 @@ export async function getBacklogTasks(): Promise<BacklogTaskRow[]> {
       projectColor: projects.color,
       priority: tasks.priority,
       isRecurring: tasks.isRecurring,
+      date: tasks.date,
     })
     .from(tasks)
     .innerJoin(projects, eq(tasks.projectId, projects.id))

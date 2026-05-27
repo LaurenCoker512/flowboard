@@ -11,6 +11,7 @@ function makeTask(overrides: Partial<BacklogTaskRow> = {}): BacklogTaskRow {
     projectColor: '#D49B92',
     priority: 'can_wait',
     isRecurring: false,
+    date: null,
     ...overrides,
   };
 }
