@@ -4,7 +4,8 @@ import React, { useState, useEffect, useTransition, useCallback, useRef } from '
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { Icon } from './ui/Icon';
 import { Segmented } from './ui/Segmented';
-import { PRIORITY_COLORS } from '@/lib/design';
+import { PRIORITY_COLORS, PROJECT_PALETTE } from '@/lib/design';
+import { createProjectInline } from '@/lib/project-actions';
 import {
   createTaskAction,
   updateTaskAction,
@@ -144,11 +145,13 @@ function buildRecurrenceRule(
 }
 
 type CustomRuleBuilderProps = {
+  unit: 'days' | 'weeks';
   interval: number;
   daysOfWeek: DayOfWeek[];
   endsType: 'never' | 'on_date' | 'after_occurrences';
   endsDate: string;
   endsAfter: number;
+  onUnitChange: (val: 'days' | 'weeks') => void;
   onIntervalChange: (val: number) => void;
   onDaysOfWeekChange: (val: DayOfWeek[]) => void;
   onEndsTypeChange: (val: 'never' | 'on_date' | 'after_occurrences') => void;
@@ -158,11 +161,13 @@ type CustomRuleBuilderProps = {
 };
 
 function CustomRuleBuilder({
+  unit,
   interval,
   daysOfWeek,
   endsType,
   endsDate,
   endsAfter,
+  onUnitChange,
   onIntervalChange,
   onDaysOfWeekChange,
   onEndsTypeChange,
@@ -183,7 +188,7 @@ function CustomRuleBuilder({
         gap: 10,
       }}
     >
-      {/* Every N interval */}
+      {/* Every N [days|weeks] */}
       <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
         <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Every</span>
         <input
@@ -198,48 +203,69 @@ function CustomRuleBuilder({
           className="fb-input"
           style={{ width: 52, textAlign: 'center', padding: '4px 6px', fontSize: 12 }}
         />
-        <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-          {interval === 1 ? 'day/week' : 'days/weeks'}
-        </span>
+        <div style={{ display: 'flex', background: 'var(--bg-subtle)', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
+          {(['days', 'weeks'] as const).map((u) => (
+            <button
+              key={u}
+              type="button"
+              disabled={isPending}
+              onClick={() => onUnitChange(u)}
+              style={{
+                padding: '3px 9px',
+                fontSize: 12,
+                fontWeight: 500,
+                border: 'none',
+                cursor: 'pointer',
+                background: unit === u ? 'var(--bg-surface)' : 'transparent',
+                color: unit === u ? 'var(--text-primary)' : 'var(--text-secondary)',
+                boxShadow: unit === u ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
+              }}
+            >
+              {u}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Days of week picker */}
-      <div>
-        <div className="fb-label" style={{ marginBottom: 5 }}>
-          On these days
+      {/* Days of week picker — only relevant for weekly cadence */}
+      {unit === 'weeks' && (
+        <div>
+          <div className="fb-label" style={{ marginBottom: 5 }}>
+            On these days
+          </div>
+          <div style={{ display: 'flex', gap: 4 }}>
+            {ALL_DAYS.map(({ key, label }) => {
+              const isOn = daysOfWeek.includes(key);
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  disabled={isPending}
+                  onClick={() => {
+                    onDaysOfWeekChange(
+                      isOn ? daysOfWeek.filter((d) => d !== key) : [...daysOfWeek, key],
+                    );
+                  }}
+                  style={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: '50%',
+                    fontSize: 11,
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                    fontFamily: 'var(--font-sans)',
+                    border: `1px solid ${isOn ? 'transparent' : 'var(--border)'}`,
+                    background: isOn ? 'var(--accent)' : 'var(--bg-surface)',
+                    color: isOn ? '#FFF8F4' : 'var(--text-secondary)',
+                  }}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: 4 }}>
-          {ALL_DAYS.map(({ key, label }) => {
-            const isOn = daysOfWeek.includes(key);
-            return (
-              <button
-                key={key}
-                type="button"
-                disabled={isPending}
-                onClick={() => {
-                  onDaysOfWeekChange(
-                    isOn ? daysOfWeek.filter((d) => d !== key) : [...daysOfWeek, key],
-                  );
-                }}
-                style={{
-                  width: 28,
-                  height: 28,
-                  borderRadius: '50%',
-                  fontSize: 11,
-                  fontWeight: 500,
-                  cursor: 'pointer',
-                  fontFamily: 'var(--font-sans)',
-                  border: `1px solid ${isOn ? 'transparent' : 'var(--border)'}`,
-                  background: isOn ? 'var(--accent)' : 'var(--bg-surface)',
-                  color: isOn ? '#FFF8F4' : 'var(--text-secondary)',
-                }}
-              >
-                {label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      )}
 
       {/* Ends */}
       <div>
@@ -329,7 +355,9 @@ function CustomRuleBuilder({
 }
 
 interface TaskModalProps {
-  mode: 'new' | 'edit';
+  mode: 'new' | 'edit' | 'exception';
+  exceptionMasterId?: string;
+  exceptionOccurrenceDate?: string;
   task?: {
     id: string;
     title: string;
@@ -353,10 +381,13 @@ interface TaskModalProps {
   defaultStartTime?: string;
   onClose: () => void;
   onSaved?: () => void;
+  onProjectCreated?: (project: { id: string; name: string; color: string }) => void;
 }
 
 export function TaskModal({
   mode,
+  exceptionMasterId,
+  exceptionOccurrenceDate,
   task,
   projects,
   defaultProjectId,
@@ -365,22 +396,29 @@ export function TaskModal({
   defaultStartTime,
   onClose,
   onSaved,
+  onProjectCreated,
 }: TaskModalProps) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [showDiscard, setShowDiscard] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showDescription, setShowDescription] = useState(
-    mode === 'edit' && Boolean(task?.description),
+    (mode === 'edit' || mode === 'exception') && Boolean(task?.description),
   );
   const [showSubtasksInline, setShowSubtasksInline] = useState(
     task?.showSubtasksInline ?? false,
   );
+  const [localProjects, setLocalProjects] = useState(projects);
+  const [showNewProject, setShowNewProject] = useState(false);
+  const [newProjectName, setNewProjectName] = useState('');
+  const [newProjectColor, setNewProjectColor] = useState(PROJECT_PALETTE[0]);
+  const [newProjectError, setNewProjectError] = useState<string | null>(null);
+  const [isCreatingProject, setIsCreatingProject] = useState(false);
 
   const [resolvedProjectId, setResolvedProjectId] = useState<string>(
-    mode === 'edit'
+    mode === 'edit' || mode === 'exception'
       ? (task?.projectId ?? '')
-      : resolveDefaultProject(null, projects, defaultProjectId ?? null),
+      : resolveDefaultProject(null, localProjects, defaultProjectId ?? null),
   );
 
   // Recurrence state
@@ -408,6 +446,9 @@ export function TaskModal({
   const [recurrenceEndsAfter, setRecurrenceEndsAfter] = useState(
     parseEndsAfter(task?.recurrenceRule?.ends),
   );
+  const [customUnit, setCustomUnit] = useState<'days' | 'weeks'>(
+    (task?.recurrenceRule?.days_of_week?.length ?? 0) > 0 ? 'weeks' : 'days',
+  );
 
   // For recurring edit scope prompt
   const [recurringEditScope, setRecurringEditScope] = useState<
@@ -417,13 +458,13 @@ export function TaskModal({
   const initialValues = useRef<TaskFormValues>({
     title: task?.title ?? '',
     projectId:
-      mode === 'edit'
+      mode === 'edit' || mode === 'exception'
         ? (task?.projectId ?? '')
-        : resolveDefaultProject(null, projects, defaultProjectId ?? null),
+        : resolveDefaultProject(null, localProjects, defaultProjectId ?? null),
     priority: task?.priority ?? 'can_wait',
     status: task?.status ?? defaultStatus,
     date: task?.date ?? defaultDate ?? '',
-    startTime: mode === 'edit' ? extractTime(task?.startAt) : (defaultStartTime ?? ''),
+    startTime: mode === 'edit' || mode === 'exception' ? extractTime(task?.startAt) : (defaultStartTime ?? ''),
     endTime: extractTime(task?.endAt),
     description: task?.description ?? '',
     isRecurring: task?.isRecurring ?? false,
@@ -437,21 +478,23 @@ export function TaskModal({
   useEffect(() => {
     if (mode === 'new') {
       const lastUsed = localStorage.getItem(LOCAL_STORAGE_KEY);
-      const resolved = resolveDefaultProject(lastUsed, projects, defaultProjectId ?? null);
+      const resolved = resolveDefaultProject(lastUsed, localProjects, defaultProjectId ?? null);
       setResolvedProjectId(resolved);
       setFormValues((prev) => ({ ...prev, projectId: resolved }));
       initialValues.current = { ...initialValues.current, projectId: resolved };
     }
-  }, [mode, projects, defaultProjectId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, defaultProjectId]);
 
   // Sync recurrence state into formValues for dirty checking
   useEffect(() => {
+    const effectiveDays = recurrenceFrequency === 'custom' && customUnit === 'days' ? [] : recurrenceDaysOfWeek;
     const isRec = recurrenceFrequency !== 'one_time' && !!formValues.date;
     const rule = isRec
       ? buildRecurrenceRule(
           recurrenceFrequency,
           recurrenceInterval,
-          recurrenceDaysOfWeek,
+          effectiveDays,
           recurrenceDayOfMonth,
           recurrenceWeekOfMonth,
           recurrenceEndsType,
@@ -466,6 +509,7 @@ export function TaskModal({
     }));
   }, [
     recurrenceFrequency,
+    customUnit,
     recurrenceInterval,
     recurrenceDaysOfWeek,
     recurrenceDayOfMonth,
@@ -500,10 +544,11 @@ export function TaskModal({
   }, [formValues, onClose]);
 
   function getFrequencyLabelFromState(): string {
+    const effectiveDays = recurrenceFrequency === 'custom' && customUnit === 'days' ? [] : recurrenceDaysOfWeek;
     const rule = buildRecurrenceRule(
       recurrenceFrequency,
       recurrenceInterval,
-      recurrenceDaysOfWeek,
+      effectiveDays,
       recurrenceDayOfMonth,
       recurrenceWeekOfMonth,
       recurrenceEndsType,
@@ -516,10 +561,11 @@ export function TaskModal({
 
   const handleSave = useCallback(
     (scope?: 'this_occurrence' | 'all_future') => {
+      const effectiveDays = recurrenceFrequency === 'custom' && customUnit === 'days' ? [] : recurrenceDaysOfWeek;
       const currentRule = buildRecurrenceRule(
         recurrenceFrequency,
         recurrenceInterval,
-        recurrenceDaysOfWeek,
+        effectiveDays,
         recurrenceDayOfMonth,
         recurrenceWeekOfMonth,
         recurrenceEndsType,
@@ -593,6 +639,19 @@ export function TaskModal({
               recurrenceRule: currentRule,
             });
           }
+        } else if (mode === 'exception' && exceptionMasterId !== undefined && exceptionOccurrenceDate !== undefined) {
+          result = await createExceptionRecord({
+            masterId: exceptionMasterId,
+            occurrenceDate: exceptionOccurrenceDate,
+            title: formValues.title,
+            projectId: formValues.projectId,
+            priority: formValues.priority,
+            status: formValues.status,
+            date: formValues.date || null,
+            startAt,
+            endAt,
+            description: formValues.description || null,
+          });
         } else {
           result = await createTaskAction({
             title: formValues.title,
@@ -626,6 +685,7 @@ export function TaskModal({
     },
     [
       recurrenceFrequency,
+      customUnit,
       recurrenceInterval,
       recurrenceDaysOfWeek,
       recurrenceDayOfMonth,
@@ -637,6 +697,8 @@ export function TaskModal({
       mode,
       task,
       recurringEditScope,
+      exceptionMasterId,
+      exceptionOccurrenceDate,
       onSaved,
       onClose,
     ],
@@ -652,7 +714,7 @@ export function TaskModal({
 
   const modalRef = useFocusTrap<HTMLDivElement>(true, handleClose);
 
-  const currentProject = projects.find((p) => p.id === formValues.projectId);
+  const currentProject = localProjects.find((p) => p.id === formValues.projectId);
 
   if (showDiscard) {
     return (
@@ -877,11 +939,11 @@ export function TaskModal({
         ref={modalRef}
         role="dialog"
         aria-modal="true"
-        aria-label={mode === 'new' ? 'New task' : 'Edit task'}
+        aria-label={mode === 'new' ? 'New task' : mode === 'exception' ? 'Schedule projected task' : 'Edit task'}
         style={{
           background: 'var(--bg-surface)',
           borderRadius: 16,
-          width: 660,
+          width: 580,
           maxWidth: '96vw',
           maxHeight: '90vh',
           display: 'flex',
@@ -908,7 +970,14 @@ export function TaskModal({
               marginBottom: 4,
             }}
           >
-            {currentProject?.name ?? 'No project'}
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              {currentProject?.name ?? 'No project'}
+              {mode === 'exception' && (
+                <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--accent-ink)', background: 'var(--accent-tint)', borderRadius: 4, padding: '1px 5px' }}>
+                  Projected
+                </span>
+              )}
+            </span>
           </div>
           <input
             id="task-title"
@@ -963,31 +1032,119 @@ export function TaskModal({
             </p>
           )}
 
-          {/* Fields row */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
-            {/* Project */}
-            <div style={{ flex: '1 1 160px', minWidth: 140 }}>
-              <label htmlFor="task-project" className="fb-label" style={{ display: 'block', marginBottom: 6 }}>
-                Project
-              </label>
-              <select
-                id="task-project"
-                className="fb-select"
-                value={formValues.projectId}
-                onChange={(e) => updateField('projectId', e.target.value)}
-                disabled={isPending}
-                style={{ width: '100%' }}
-              >
-                {projects.map((project) => (
-                  <option key={project.id} value={project.id}>
-                    {project.name}
-                  </option>
-                ))}
-              </select>
+          {/* Row 1: project + priority */}
+          <div className="fb-modal-row">
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                <label htmlFor="task-project" className="fb-label" style={{ margin: 0 }}>
+                  Project
+                </label>
+                <button
+                  type="button"
+                  className="fb-btn fb-btn--ghost"
+                  onClick={() => {
+                    setShowNewProject((v) => !v);
+                    setNewProjectName('');
+                    setNewProjectColor(PROJECT_PALETTE[0]);
+                    setNewProjectError(null);
+                  }}
+                  disabled={isPending}
+                  style={{ fontSize: 11, padding: '2px 6px', color: 'var(--text-tertiary)' }}
+                >
+                  {showNewProject ? 'Cancel' : '+ New'}
+                </button>
+              </div>
+              {showNewProject ? (
+                <div
+                  style={{
+                    border: '1px solid var(--border)',
+                    borderRadius: 8,
+                    padding: '10px 12px',
+                    background: 'var(--bg-subtle)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 8,
+                  }}
+                >
+                  <input
+                    type="text"
+                    className="fb-input"
+                    placeholder="Project name"
+                    value={newProjectName}
+                    onChange={(e) => setNewProjectName(e.target.value)}
+                    autoFocus
+                    maxLength={100}
+                    style={{ fontSize: 13 }}
+                  />
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                    {PROJECT_PALETTE.map((color) => (
+                      <button
+                        key={color}
+                        type="button"
+                        onClick={() => setNewProjectColor(color)}
+                        aria-label={`Select color ${color}`}
+                        style={{
+                          width: 20,
+                          height: 20,
+                          borderRadius: '50%',
+                          background: color,
+                          border: newProjectColor === color
+                            ? '2px solid var(--text-primary)'
+                            : '2px solid transparent',
+                          cursor: 'pointer',
+                          padding: 0,
+                          flexShrink: 0,
+                        }}
+                      />
+                    ))}
+                  </div>
+                  {newProjectError !== null && (
+                    <p style={{ margin: 0, fontSize: 12, color: 'var(--p-must)' }}>{newProjectError}</p>
+                  )}
+                  <button
+                    type="button"
+                    className="fb-btn fb-btn--primary"
+                    disabled={isCreatingProject || !newProjectName.trim()}
+                    onClick={() => {
+                      setIsCreatingProject(true);
+                      setNewProjectError(null);
+                      createProjectInline(newProjectName.trim(), newProjectColor).then((result) => {
+                        setIsCreatingProject(false);
+                        if ('error' in result) {
+                          setNewProjectError(result.error);
+                          return;
+                        }
+                        const created = { id: result.id, name: result.name, color: result.color };
+                        setLocalProjects((prev) => [...prev, created]);
+                        updateField('projectId', created.id);
+                        onProjectCreated?.(created);
+                        setShowNewProject(false);
+                        setNewProjectName('');
+                      });
+                    }}
+                    style={{ fontSize: 12, padding: '5px 10px', alignSelf: 'flex-end' }}
+                  >
+                    {isCreatingProject ? 'Creating…' : 'Create project'}
+                  </button>
+                </div>
+              ) : (
+                <select
+                  id="task-project"
+                  className="fb-select"
+                  value={formValues.projectId}
+                  onChange={(e) => updateField('projectId', e.target.value)}
+                  disabled={isPending}
+                  style={{ width: '100%' }}
+                >
+                  {localProjects.map((project) => (
+                    <option key={project.id} value={project.id}>
+                      {project.name}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
-
-            {/* Priority */}
-            <div style={{ flex: '1 1 160px', minWidth: 140 }}>
+            <div>
               <label className="fb-label" style={{ display: 'block', marginBottom: 6 }}>
                 Priority
               </label>
@@ -998,42 +1155,44 @@ export function TaskModal({
                 fullWidth
               />
             </div>
+          </div>
 
-            {/* Status */}
-            <div style={{ flex: '1 1 160px', minWidth: 140 }}>
-              <label className="fb-label" style={{ display: 'block', marginBottom: 4 }}>
-                Status
-              </label>
-              <div style={{ display: 'flex', gap: 2 }}>
-                {STATUS_OPTIONS.map((option) => {
-                  const isActive = formValues.status === option.value;
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => updateField('status', option.value)}
-                      disabled={isPending}
-                      style={{
-                        flex: 1,
-                        padding: '6px 4px',
-                        borderRadius: 6,
-                        fontSize: 12,
-                        fontWeight: 500,
-                        border: '1px solid var(--border)',
-                        cursor: 'pointer',
-                        background: isActive ? 'var(--accent-tint)' : 'transparent',
-                        color: isActive ? 'var(--accent-ink)' : 'var(--text-secondary)',
-                      }}
-                    >
-                      {option.label}
-                    </button>
-                  );
-                })}
-              </div>
+          {/* Row 2: status */}
+          <div>
+            <label className="fb-label" style={{ display: 'block', marginBottom: 4 }}>
+              Status
+            </label>
+            <div style={{ display: 'flex', gap: 2 }}>
+              {STATUS_OPTIONS.map((option) => {
+                const isActive = formValues.status === option.value;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => updateField('status', option.value)}
+                    disabled={isPending}
+                    style={{
+                      flex: 1,
+                      padding: '6px 4px',
+                      borderRadius: 6,
+                      fontSize: 12,
+                      fontWeight: 500,
+                      border: '1px solid var(--border)',
+                      cursor: 'pointer',
+                      background: isActive ? 'var(--accent-tint)' : 'transparent',
+                      color: isActive ? 'var(--accent-ink)' : 'var(--text-secondary)',
+                    }}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
             </div>
+          </div>
 
-            {/* Date */}
-            <div style={{ flex: '1 1 130px', minWidth: 120 }}>
+          {/* Row 3: date + start time + end time */}
+          <div className="fb-modal-row">
+            <div>
               <label htmlFor="task-date" className="fb-label" style={{ display: 'block', marginBottom: 6 }}>
                 Date
               </label>
@@ -1047,9 +1206,7 @@ export function TaskModal({
                 style={{ width: '100%' }}
               />
             </div>
-
-            {/* Start time */}
-            <div style={{ flex: '1 1 110px', minWidth: 100 }}>
+            <div>
               <label htmlFor="task-start-time" className="fb-label" style={{ display: 'block', marginBottom: 6 }}>
                 Start time
               </label>
@@ -1063,9 +1220,7 @@ export function TaskModal({
                 style={{ width: '100%' }}
               />
             </div>
-
-            {/* End time */}
-            <div style={{ flex: '1 1 110px', minWidth: 100 }}>
+            <div>
               <label htmlFor="task-end-time" className="fb-label" style={{ display: 'block', marginBottom: 6 }}>
                 End time
               </label>
@@ -1079,9 +1234,12 @@ export function TaskModal({
                 style={{ width: '100%' }}
               />
             </div>
+          </div>
 
-            {/* Recurrence */}
-            <div style={{ flex: '1 1 180px', minWidth: 160 }}>
+          {/* Row 4: recurrence + show subtasks */}
+          {/* TODO: support adding subtasks during task creation (requires saving the task first, then batch-saving subtasks) */}
+          {mode !== 'exception' && <div className="fb-modal-row" style={{ alignItems: 'flex-end' }}>
+            <div>
               <label className="fb-label" style={{ display: 'block', marginBottom: 6 }}>
                 Recurrence
               </label>
@@ -1133,14 +1291,15 @@ export function TaskModal({
                   <option value="custom">Custom…</option>
                 </select>
               </div>
-
               {recurrenceFrequency === 'custom' && formValues.date && (
                 <CustomRuleBuilder
+                  unit={customUnit}
                   interval={recurrenceInterval}
                   daysOfWeek={recurrenceDaysOfWeek}
                   endsType={recurrenceEndsType}
                   endsDate={recurrenceEndsDate}
                   endsAfter={recurrenceEndsAfter}
+                  onUnitChange={setCustomUnit}
                   onIntervalChange={setRecurrenceInterval}
                   onDaysOfWeekChange={setRecurrenceDaysOfWeek}
                   onEndsTypeChange={setRecurrenceEndsType}
@@ -1150,41 +1309,41 @@ export function TaskModal({
                 />
               )}
             </div>
-
-            {/* Show on card */}
-            <div style={{ flex: '1 1 180px', minWidth: 160, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
-              <label
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  cursor: 'pointer',
-                }}
-              >
-                <span className="fb-label">Show subtasks on card</span>
-                <input
-                  type="checkbox"
-                  checked={showSubtasksInline}
-                  disabled={isPending}
-                  onChange={(e) => {
-                    const value = e.target.checked;
-                    setShowSubtasksInline(value);
-                    if (mode === 'edit' && task !== undefined) {
-                      startTransition(async () => {
-                        await updateShowSubtasksInline({
-                          taskId: task.id,
-                          value,
-                          masterId: task.recurringMasterId ?? null,
-                        });
-                      });
-                    }
+            {mode === 'edit' && (
+              <div>
+                <label
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    cursor: 'pointer',
                   }}
-                  aria-label="Show subtasks on board card"
-                  style={{ width: 16, height: 16, cursor: 'pointer' }}
-                />
-              </label>
-            </div>
-          </div>
+                >
+                  <span className="fb-label">Show subtasks on card</span>
+                  <input
+                    type="checkbox"
+                    checked={showSubtasksInline}
+                    disabled={isPending}
+                    onChange={(e) => {
+                      const value = e.target.checked;
+                      setShowSubtasksInline(value);
+                      if (task !== undefined) {
+                        startTransition(async () => {
+                          await updateShowSubtasksInline({
+                            taskId: task.id,
+                            value,
+                            masterId: task.recurringMasterId ?? null,
+                          });
+                        });
+                      }
+                    }}
+                    aria-label="Show subtasks on board card"
+                    style={{ width: 16, height: 16, cursor: 'pointer' }}
+                  />
+                </label>
+              </div>
+            )}
+          </div>}
 
           {/* Description */}
           <div style={{ borderTop: '1px solid var(--border)', paddingTop: 16 }}>

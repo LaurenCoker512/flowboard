@@ -248,6 +248,19 @@ body {
   color: #FFF8F4;
 }
 
+/* ─── Task modal field rows ─────────────────────────────────────────────── */
+.fb-modal-row {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+.fb-modal-row > * { flex: 1; min-width: 0; }
+
+@media (max-width: 640px) {
+  .fb-modal-row { flex-direction: column; gap: 12px; }
+  .fb-modal-row > * { flex: none !important; width: 100%; min-width: 0 !important; }
+}
+
 /* ─── Mobile task modal ─────────────────────────────────────────────────── */
 @media (max-width: 640px) {
   .fb-modal-footer { position: sticky; bottom: 0; z-index: 1; }
@@ -266,4 +279,14 @@ body {
 @keyframes fb-pulse {
   0%, 100% { opacity: 1; }
   50%       { opacity: 0.45; }
+}
+
+@keyframes nav-fill {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(0.85); }
+}
+
+@keyframes nav-complete {
+  0%   { opacity: 1; }
+  100% { opacity: 0; }
 }

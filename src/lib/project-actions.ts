@@ -92,3 +92,24 @@ export async function deleteProjectAction(id: string): Promise<void> {
   await db.delete(projects).where(eq(projects.id, id));
   revalidatePath('/projects');
 }
+
+export async function createProjectInline(
+  name: string,
+  color: string,
+): Promise<{ id: string; name: string; color: string } | { error: string }> {
+  const nameError = validateProjectName(name);
+  if (nameError) return { error: nameError };
+
+  const colorError = validateProjectColor(color);
+  if (colorError) return { error: colorError };
+
+  const [row] = await db
+    .insert(projects)
+    .values({ name: name.trim(), color })
+    .returning({ id: projects.id, name: projects.name, color: projects.color });
+
+  revalidatePath('/projects');
+  revalidatePath('/board');
+  revalidatePath('/tasks');
+  return row;
+}
