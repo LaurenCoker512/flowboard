@@ -201,12 +201,49 @@ export function getFrequencyLabel(rule: RecurrenceRule): string {
 
   if (frequency === 'custom') {
     if (rule.days_of_week !== undefined && rule.days_of_week.length > 0) {
-      return rule.days_of_week.map((d) => SHORT_DAY_NAMES[d]).join('/');
+      const suffix = interval > 1 ? ` (every ${interval}w)` : '';
+      return rule.days_of_week.map((d) => SHORT_DAY_NAMES[d]).join('/') + suffix;
     }
-    return 'Custom';
+    return interval === 1 ? 'Daily' : `Every ${interval} days`;
   }
 
   return 'Custom';
+}
+
+export function getOccurrencesInRange(
+  rule: RecurrenceRule,
+  masterDate: string,
+  rangeStart: string,
+  rangeEnd: string,
+): string[] {
+  const results: string[] = [];
+  let current = new Date(masterDate + 'T00:00:00Z');
+  const rangeStartDate = new Date(rangeStart + 'T00:00:00Z');
+  const rangeEndDate = new Date(rangeEnd + 'T00:00:00Z');
+
+  // Start from the NEXT occurrence after masterDate (masterDate itself is a real DB record)
+  current = getNextOccurrence(rule, current);
+
+  // Fast-forward past occurrences before rangeStart
+  let safetyA = 0;
+  while (current < rangeStartDate && safetyA < 5000) {
+    safetyA++;
+    const next = getNextOccurrence(rule, current);
+    if (next.getTime() <= current.getTime()) return results;
+    current = next;
+  }
+
+  // Collect occurrences inside [rangeStart, rangeEnd]
+  let safetyB = 0;
+  while (current <= rangeEndDate && safetyB < 500) {
+    safetyB++;
+    results.push(current.toISOString().slice(0, 10));
+    const next = getNextOccurrence(rule, current);
+    if (next.getTime() <= current.getTime()) break;
+    current = next;
+  }
+
+  return results;
 }
 
 export function isRecurrenceComplete(

@@ -28,6 +28,7 @@ export type MonthTask = {
   recurrenceRule: unknown;
   recurringMasterId: string | null;
   description: string | null;
+  isProjected?: boolean;
 };
 
 function pad(n: number): string {

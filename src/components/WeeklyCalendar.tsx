@@ -64,6 +64,7 @@ function rowToWeekTask(row: WeekTaskRow): WeekTask {
     recurrenceRule: row.recurrenceRule,
     recurringMasterId: row.recurringMasterId,
     description: row.description,
+    isProjected: row.isProjected,
   };
 }
 
@@ -203,6 +204,38 @@ function DraggableTaskChip({
           onEdit(task);
         }}
       />
+    </div>
+  );
+}
+
+// ─── Projected Task Chip ────────────────────────────────────────────────────
+
+function ProjectedTaskChip({ task, onClick }: { task: WeekTask; onClick: (e: React.MouseEvent) => void }) {
+  const priorityColor = PRIORITY_COLORS[task.priority].color;
+  return (
+    <div
+      onClick={onClick}
+      title="Projected occurrence — click to schedule"
+      style={{
+        border: `1.5px dashed ${priorityColor}`,
+        borderRadius: 6,
+        padding: '3px 6px 3px 7px',
+        fontSize: 11.5,
+        lineHeight: 1.3,
+        color: 'var(--text-secondary)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 5,
+        minWidth: 0,
+        cursor: 'pointer',
+        opacity: 0.65,
+      }}
+    >
+      <ProjectDot color={task.projectColor} size={6} />
+      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {task.title}
+      </span>
+      <Icon name="repeat" size={9} color="var(--text-tertiary)" />
     </div>
   );
 }
@@ -694,14 +727,24 @@ export function WeeklyCalendar({
                       >
                         {group.events.map((task) => (
                           <div
-                            key={task.id}
+                            key={task.isProjected === true ? `proj-${task.id}-${task.date}` : task.id}
                             style={{ flex: 1, minWidth: 0 }}
                           >
-                            <DraggableTaskChip
-                              task={task}
-                              isTimed={true}
-                              onEdit={setEditTask}
-                            />
+                            {task.isProjected === true ? (
+                              <div style={{ opacity: 0.65 }} onClick={(e) => { e.stopPropagation(); setEditTask(task); }}>
+                                <TaskChip
+                                  task={task}
+                                  isTimed={true}
+                                  onClick={(e) => { e.stopPropagation(); setEditTask(task); }}
+                                />
+                              </div>
+                            ) : (
+                              <DraggableTaskChip
+                                task={task}
+                                isTimed={true}
+                                onEdit={setEditTask}
+                              />
+                            )}
                           </div>
                         ))}
                       </div>
@@ -774,12 +817,22 @@ export function WeeklyCalendar({
                     onClick={() => handleAllDaySlotClick(day.dateStr)}
                   >
                     {allDay.map((task) => (
-                      <div key={task.id} onClick={(e) => e.stopPropagation()}>
-                        <DraggableTaskChip
-                          task={task}
-                          isTimed={false}
-                          onEdit={setEditTask}
-                        />
+                      <div key={task.isProjected === true ? `proj-${task.id}-${task.date}` : task.id} onClick={(e) => e.stopPropagation()}>
+                        {task.isProjected === true ? (
+                          <ProjectedTaskChip
+                            task={task}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditTask(task);
+                            }}
+                          />
+                        ) : (
+                          <DraggableTaskChip
+                            task={task}
+                            isTimed={false}
+                            onEdit={setEditTask}
+                          />
+                        )}
                       </div>
                     ))}
                   </DroppableDayColumn>
@@ -800,8 +853,8 @@ export function WeeklyCalendar({
         </DragOverlay>
       </DndContext>
 
-      {/* Task modal — edit existing task */}
-      {editTask !== null && (
+      {/* Task modal — edit existing task (non-projected only) */}
+      {editTask !== null && editTask.isProjected !== true && (
         <TaskModal
           mode="edit"
           task={{
@@ -817,6 +870,32 @@ export function WeeklyCalendar({
             isRecurring: editTask.isRecurring,
             recurrenceRule: editTask.recurrenceRule as RecurrenceRule | null,
             recurringMasterId: editTask.recurringMasterId,
+          }}
+          projects={projects}
+          onClose={() => setEditTask(null)}
+          onSaved={handleSaved}
+        />
+      )}
+
+      {/* Task modal — exception (projected occurrence) */}
+      {editTask !== null && editTask.isProjected === true && (
+        <TaskModal
+          mode="exception"
+          exceptionMasterId={editTask.id}
+          exceptionOccurrenceDate={editTask.date!}
+          task={{
+            id: editTask.id,
+            title: editTask.title,
+            projectId: editTask.projectId,
+            priority: editTask.priority,
+            status: 'backlog',
+            date: editTask.date,
+            startAt: editTask.startAt,
+            endAt: editTask.endAt,
+            description: editTask.description,
+            isRecurring: false,
+            recurrenceRule: null,
+            recurringMasterId: null,
           }}
           projects={projects}
           onClose={() => setEditTask(null)}

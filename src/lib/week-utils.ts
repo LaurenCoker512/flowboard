@@ -27,6 +27,7 @@ export type WeekTask = {
   recurrenceRule: unknown;
   recurringMasterId: string | null;
   description: string | null;
+  isProjected?: boolean;
 };
 
 export type OverlapGroup = {

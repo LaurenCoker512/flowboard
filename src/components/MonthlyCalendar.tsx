@@ -74,13 +74,15 @@ function MonthTaskChip({
   return (
     <button
       onClick={onClick}
+      title={task.isProjected === true ? 'Projected occurrence — click to schedule' : undefined}
       style={{
         display: 'flex',
         alignItems: 'center',
         gap: 4,
         width: '100%',
-        background: tint,
-        borderLeft: `2.5px solid ${color}`,
+        background: task.isProjected === true ? 'transparent' : tint,
+        border: 'none',
+        borderLeft: task.isProjected === true ? `2px dashed ${color}` : `2.5px solid ${color}`,
         borderTop: 'none',
         borderRight: 'none',
         borderBottom: 'none',
@@ -88,10 +90,11 @@ function MonthTaskChip({
         padding: '2px 5px',
         fontSize: 10.5,
         lineHeight: 1.25,
-        color: 'var(--text-primary)',
+        color: task.isProjected === true ? 'var(--text-secondary)' : 'var(--text-primary)',
         cursor: 'pointer',
         textAlign: 'left',
         minWidth: 0,
+        opacity: task.isProjected === true ? 0.7 : 1,
       }}
     >
       <ProjectDot color={task.projectColor} size={5} />
@@ -106,6 +109,7 @@ function MonthTaskChip({
         {task.startAt !== null ? `${formatTime(task.startAt)} ` : ''}
         {task.title}
       </span>
+      {task.isProjected === true && <Icon name="repeat" size={8} color="var(--text-tertiary)" />}
     </button>
   );
 }
@@ -252,6 +256,11 @@ function DayDetailPopover({
                     {formatTime(task.startAt)}
                   </span>
                 )}
+                {task.isProjected === true && (
+                  <span style={{ fontSize: 10, color: 'var(--accent-ink)', background: 'var(--accent-tint)', borderRadius: 3, padding: '1px 4px', flexShrink: 0 }}>
+                    projected
+                  </span>
+                )}
                 {recurringLabel !== null && (
                   <Icon name="repeat" size={11} color="var(--text-tertiary)" />
                 )}
@@ -345,7 +354,7 @@ function MobileAgendaList({
                   const { color } = PRIORITY_COLORS[task.priority];
                   return (
                     <button
-                      key={task.id}
+                      key={task.isProjected === true ? `proj-${task.id}-${task.date}` : task.id}
                       onClick={() => onOpenTask(task)}
                       style={{
                         display: 'flex',
@@ -355,13 +364,14 @@ function MobileAgendaList({
                         padding: '6px 10px',
                         marginBottom: 3,
                         borderRadius: 6,
-                        borderLeft: `3px solid ${color}`,
+                        borderLeft: task.isProjected === true ? `2px dashed ${color}` : `3px solid ${color}`,
                         borderTop: 'none',
                         borderRight: 'none',
                         borderBottom: 'none',
                         background: 'var(--bg-base)',
                         cursor: 'pointer',
                         textAlign: 'left',
+                        opacity: task.isProjected === true ? 0.7 : 1,
                       }}
                     >
                       <ProjectDot color={task.projectColor} size={6} />
@@ -408,6 +418,7 @@ export function MonthlyCalendar({
   const [month, setMonth] = useState(initialMonth);
   const [tasks, setTasks] = useState<MonthTask[]>(initialTasks);
   const [editTask, setEditTask] = useState<MonthTask | null>(null);
+  const [exceptionTask, setExceptionTask] = useState<MonthTask | null>(null);
   const [newTaskDate, setNewTaskDate] = useState<string | null>(null);
   const [popoverDate, setPopoverDate] = useState<string | null>(null);
   const [popoverRect, setPopoverRect] = useState<DOMRect | null>(null);
@@ -462,11 +473,16 @@ export function MonthlyCalendar({
 
   const handleOpenTask = useCallback((task: MonthTask) => {
     setPopoverDate(null);
-    setEditTask(task);
+    if (task.isProjected === true) {
+      setExceptionTask(task);
+    } else {
+      setEditTask(task);
+    }
   }, []);
 
   const handleModalClose = useCallback(async () => {
     setEditTask(null);
+    setExceptionTask(null);
     setNewTaskDate(null);
     const { startDate, endDate } = getMonthRange(year, month);
     const rows = await getMonthTasks(startDate, endDate);
@@ -864,6 +880,32 @@ export function MonthlyCalendar({
           }}
           projects={projects}
           onClose={handleModalClose}
+        />
+      )}
+
+      {/* ── Task Modal (exception — projected occurrence) ── */}
+      {exceptionTask !== null && (
+        <TaskModal
+          mode="exception"
+          exceptionMasterId={exceptionTask.id}
+          exceptionOccurrenceDate={exceptionTask.date!}
+          task={{
+            id: exceptionTask.id,
+            title: exceptionTask.title,
+            projectId: exceptionTask.projectId,
+            priority: exceptionTask.priority,
+            status: 'backlog',
+            date: exceptionTask.date,
+            startAt: exceptionTask.startAt,
+            endAt: exceptionTask.endAt,
+            isRecurring: false,
+            recurrenceRule: null,
+            recurringMasterId: null,
+            description: exceptionTask.description,
+          }}
+          projects={projects}
+          onClose={handleModalClose}
+          onSaved={handleModalClose}
         />
       )}
 
