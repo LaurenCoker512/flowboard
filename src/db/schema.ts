@@ -106,6 +106,28 @@ export const subtasks = pgTable(
   (table) => [index('idx_subtasks_task_id').on(table.taskId)],
 );
 
+export const taskCompletions = pgTable(
+  'task_completions',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    taskId: uuid('task_id').references(() => tasks.id, { onDelete: 'set null' }),
+    title: varchar('title', { length: 255 }).notNull(),
+    projectId: uuid('project_id'),
+    projectName: varchar('project_name', { length: 100 }).notNull(),
+    projectColor: varchar('project_color', { length: 7 }).notNull(),
+    completedAt: timestamp('completed_at', { withTimezone: true }).notNull(),
+    date: date('date'),
+    startAt: timestamp('start_at', { withTimezone: true }),
+    endAt: timestamp('end_at', { withTimezone: true }),
+    isRecurring: boolean('is_recurring').notNull().default(false),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_tc_completed_at').on(table.completedAt),
+    index('idx_tc_task_id').on(table.taskId),
+  ],
+);
+
 export const settings = pgTable('settings', {
   id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
   userId: uuid('user_id')

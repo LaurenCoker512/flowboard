@@ -8,12 +8,19 @@
       "when": 1779581455503,
       "tag": "0000_dapper_khan",
       "breakpoints": true
-    }
-    ,{
+    },
+    {
       "idx": 1,
       "version": "7",
       "when": 1748131200000,
       "tag": "0001_subtasks",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1779921312444,
+      "tag": "0002_silly_tyger_tiger",
       "breakpoints": true
     }
   ]
