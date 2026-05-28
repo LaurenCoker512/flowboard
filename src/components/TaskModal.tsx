@@ -16,6 +16,7 @@ import {
 import { updateShowSubtasksInline } from '@/lib/subtask-actions';
 import { getFrequencyLabel } from '@/lib/recurrence';
 import { resolveDefaultProject, isTaskDirty, type TaskFormValues } from '@/lib/task-defaults';
+import { getTodayString } from '@/lib/board-utils';
 import { SubtaskSection } from '@/components/SubtaskSection';
 import type { RecurrenceRule, DayOfWeek } from '@/lib/recurrence';
 import type { SubtaskData } from '@/types';
@@ -463,7 +464,7 @@ export function TaskModal({
         : resolveDefaultProject(null, localProjects, defaultProjectId ?? null),
     priority: task?.priority ?? 'can_wait',
     status: task?.status ?? defaultStatus,
-    date: task?.date ?? defaultDate ?? '',
+    date: task?.date ?? defaultDate ?? (mode === 'new' ? getTodayString() : ''),
     startTime: mode === 'edit' || mode === 'exception' ? extractTime(task?.startAt) : (defaultStartTime ?? ''),
     endTime: extractTime(task?.endAt),
     description: task?.description ?? '',
