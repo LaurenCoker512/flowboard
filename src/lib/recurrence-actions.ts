@@ -43,7 +43,10 @@ async function insertCompletionSnapshot(
   });
 }
 
-export async function advanceRecurringTask(taskId: string): Promise<{ archived: boolean }> {
+export async function advanceRecurringTask(
+  taskId: string,
+  overrideCompletedAt?: Date,
+): Promise<{ archived: boolean }> {
   const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId));
   if (task === undefined) return { archived: false };
 
@@ -64,7 +67,7 @@ export async function advanceRecurringTask(taskId: string): Promise<{ archived: 
     const newCount = (master.completionCount ?? 0) + 1;
     const nextDate = getNextOccurrence(rule, fromDate);
 
-    await insertCompletionSnapshot(task, task.completedAt ?? now, occurrenceDateStr);
+    await insertCompletionSnapshot(task, overrideCompletedAt ?? task.completedAt ?? now, occurrenceDateStr);
 
     // Delete the exception record
     await db.delete(tasks).where(eq(tasks.id, taskId));
@@ -114,7 +117,7 @@ export async function advanceRecurringTask(taskId: string): Promise<{ archived: 
   const newCount = (task.completionCount ?? 0) + 1;
   const nextDate = getNextOccurrence(rule, new Date(task.date));
 
-  await insertCompletionSnapshot(task, task.completedAt ?? now);
+  await insertCompletionSnapshot(task, overrideCompletedAt ?? task.completedAt ?? now);
 
   if (isRecurrenceComplete(rule, newCount, nextDate)) {
     await db
@@ -242,7 +245,7 @@ export async function advanceNewDayTasks(): Promise<void> {
 
   // Fetch all recurring MASTER tasks that are incomplete with a past date
   const recurringMissed = await db
-    .select({ id: tasks.id })
+    .select({ id: tasks.id, startAt: tasks.startAt })
     .from(tasks)
     .where(
       and(
@@ -256,7 +259,38 @@ export async function advanceNewDayTasks(): Promise<void> {
     );
 
   for (const task of recurringMissed) {
-    await convertMissedOccurrence(task.id);
+    if (task.startAt !== null) {
+      // Appointment: advance to history (using the appointment time as completedAt so
+      // history lands on the correct date) and move the master to its next occurrence.
+      await advanceRecurringTask(task.id, task.startAt);
+    } else {
+      await convertMissedOccurrence(task.id);
+    }
+  }
+
+  // Auto-complete past appointments (any task with a date + startAt) that were
+  // never manually marked done. By this point recurring masters have already had
+  // their dates advanced to the future, so they won't match this query.
+  const pastAppointments = await db
+    .select()
+    .from(tasks)
+    .where(
+      and(
+        eq(tasks.isArchived, false),
+        ne(tasks.status, 'done'),
+        isNotNull(tasks.startAt),
+        isNotNull(tasks.date),
+        lt(tasks.date, dateToString(today)),
+      ),
+    );
+
+  const now = new Date();
+  for (const task of pastAppointments) {
+    await insertCompletionSnapshot(task, task.startAt!);
+    await db
+      .update(tasks)
+      .set({ status: 'done', completedAt: task.startAt, isArchived: true, updatedAt: now })
+      .where(eq(tasks.id, task.id));
   }
 
   revalidateAll();

@@ -61,17 +61,17 @@ export async function requestPasswordResetAction(
     }
 
     if (!process.env.RESEND_API_KEY) {
-      return { status: 'error', message: 'Email service is not configured.' };
+      console.log(`[reset] RESEND_API_KEY not set — reset URL: ${resetUrl}`);
+    } else {
+      const resend = new Resend(process.env.RESEND_API_KEY);
+      await resend.emails.send({
+        from: 'Flowboard <noreply@flowboard.app>',
+        to: email,
+        subject: 'Reset your Flowboard password',
+        text: `Reset your password:\n\n${resetUrl}\n\nThis link expires in 1 hour. If you didn't request this, you can ignore this email.`,
+        html: `<p>Click the link below to reset your Flowboard password:</p><p><a href="${resetUrl}">${resetUrl}</a></p><p>This link expires in 1 hour. If you didn't request this, you can ignore this email.</p>`,
+      });
     }
-
-    const resend = new Resend(process.env.RESEND_API_KEY);
-    await resend.emails.send({
-      from: 'Flowboard <noreply@flowboard.app>',
-      to: email,
-      subject: 'Reset your Flowboard password',
-      text: `Reset your password:\n\n${resetUrl}\n\nThis link expires in 1 hour. If you didn't request this, you can ignore this email.`,
-      html: `<p>Click the link below to reset your Flowboard password:</p><p><a href="${resetUrl}">${resetUrl}</a></p><p>This link expires in 1 hour. If you didn't request this, you can ignore this email.</p>`,
-    });
   }
 
   return {
