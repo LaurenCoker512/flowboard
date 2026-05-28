@@ -104,6 +104,7 @@ function MonthTaskChip({
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           whiteSpace: 'nowrap',
+          textDecoration: task.status === 'done' ? 'line-through' : undefined,
         }}
       >
         {task.startAt !== null ? `${formatTime(task.startAt)} ` : ''}
@@ -247,6 +248,7 @@ function DayDetailPopover({
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
+                    textDecoration: task.status === 'done' ? 'line-through' : undefined,
                   }}
                 >
                   {task.title}

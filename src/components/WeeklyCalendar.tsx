@@ -138,7 +138,7 @@ function TaskChip({ task, isTimed, isDragging = false, onClick }: TaskChipProps)
           </div>
         )}
         <div
-          style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+          style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: task.status === 'done' ? 'line-through' : undefined }}
         >
           {task.title}
         </div>
@@ -168,7 +168,7 @@ function TaskChip({ task, isTimed, isDragging = false, onClick }: TaskChipProps)
     >
       <ProjectDot color={task.projectColor} size={6} />
       <span
-        style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+        style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: task.status === 'done' ? 'line-through' : undefined }}
       >
         {task.title}
       </span>

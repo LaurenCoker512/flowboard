@@ -48,7 +48,6 @@ type BoardClientProps = {
   initialTasks: BoardTaskRow[];
   initialBacklogTasks: BacklogTaskRow[];
   projects: Project[];
-  backlogCount: number;
 };
 
 function rowToTask(row: BoardTaskRow): BoardTask {
@@ -267,7 +266,7 @@ function DroppableSortableColumn({ status, items, droppableId, ...columnProps }:
 
 const LAST_OPENED_KEY = 'flowboard:lastOpenedDate';
 
-export function BoardClient({ initialTasks, initialBacklogTasks, projects, backlogCount }: BoardClientProps) {
+export function BoardClient({ initialTasks, initialBacklogTasks, projects }: BoardClientProps) {
   const [, startTransition] = useTransition();
   const [filters, setFilters] = useState<BoardFilters>({
     priorities: [],
@@ -405,6 +404,8 @@ export function BoardClient({ initialTasks, initialBacklogTasks, projects, backl
   const today = getTodayString();
   const filtered = filtersLoaded ? applyFilters(optimisticTasks, filters) : optimisticTasks;
   const columns = buildBoardColumns(filtered, today);
+  const laterTasks = initialBacklogTasks.filter((task) => task.date !== today);
+  const backlogCount = laterTasks.length;
 
   const activeTask = activeId !== null
     ? optimisticTasks.find((task) => task.id === activeId) ?? null
@@ -761,7 +762,7 @@ export function BoardClient({ initialTasks, initialBacklogTasks, projects, backl
           </DragOverlay>
         </DndContext>
         <BacklogPanel
-          initialTasks={initialBacklogTasks}
+          initialTasks={laterTasks}
           projects={projects}
           onAddTask={handleAddBacklogTask}
           isOpen={backlogOpen}
