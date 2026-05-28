@@ -8,12 +8,10 @@ import { getNextOccurrence } from '@/lib/recurrence';
 import type { RecurrenceRule } from '@/lib/recurrence';
 import { validateTaskTitle } from '@/lib/task-utils';
 
-const PATHS_TO_REVALIDATE = ['/board', '/tasks', '/projects'] as const;
-
 function revalidateAll(): void {
-  for (const path of PATHS_TO_REVALIDATE) {
-    revalidatePath(path);
-  }
+  revalidatePath('/board');
+  revalidatePath('/tasks');
+  revalidatePath('/projects', 'layout');
 }
 
 export type CreateTaskInput = {

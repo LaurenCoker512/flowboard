@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useTransition, useRef, useCallback } from 'react';
+import React, { useState, useTransition, useRef, useCallback, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   DndContext,
@@ -297,6 +298,7 @@ function DescriptionEditor({
 }
 
 export function ProjectDetailClient({ data, projects }: Props) {
+  const router = useRouter();
   const [, startTransition] = useTransition();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [modal, setModal] = useState<ModalState>(null);
@@ -305,6 +307,10 @@ export function ProjectDetailClient({ data, projects }: Props) {
   const [localBacklog, setLocalBacklog] = useState<ProjectDetailTask[]>(() =>
     sortBacklogTasks(data.tasks.filter((t) => t.status === 'backlog')),
   );
+
+  useEffect(() => {
+    setLocalBacklog(sortBacklogTasks(data.tasks.filter((t) => t.status === 'backlog')));
+  }, [data]);
 
   const today = getTodayString();
   const stats = calculateStats(data.tasks, today);
@@ -613,6 +619,7 @@ export function ProjectDetailClient({ data, projects }: Props) {
           defaultStatus={modal.defaults.status}
           defaultProjectId={modal.defaults.projectId}
           onClose={handleModalClose}
+          onSaved={() => router.refresh()}
         />
       )}
 
