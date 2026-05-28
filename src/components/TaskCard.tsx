@@ -100,6 +100,11 @@ export function TaskCard({
           }}
         >
           {formatTime(task.startAt)}
+          {task.endAt !== null && task.endAt.getTime() !== task.startAt.getTime() && (
+            <span style={{ fontWeight: 400, color: 'var(--text-secondary)' }}>
+              {' – '}{formatTime(task.endAt)}
+            </span>
+          )}
         </div>
       )}
 
