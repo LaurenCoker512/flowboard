@@ -86,6 +86,8 @@ function parseRecurrenceFrequency(
   rule?: RecurrenceRule | null,
 ): 'one_time' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom' {
   if (rule === null || rule === undefined) return 'one_time';
+  // yearly with interval > 1 is stored as frequency:'yearly' but edits via the custom builder
+  if (rule.frequency === 'yearly' && rule.interval > 1) return 'custom';
   return rule.frequency;
 }
 
@@ -146,13 +148,13 @@ function buildRecurrenceRule(
 }
 
 type CustomRuleBuilderProps = {
-  unit: 'days' | 'weeks';
+  unit: 'days' | 'weeks' | 'years';
   interval: number;
   daysOfWeek: DayOfWeek[];
   endsType: 'never' | 'on_date' | 'after_occurrences';
   endsDate: string;
   endsAfter: number;
-  onUnitChange: (val: 'days' | 'weeks') => void;
+  onUnitChange: (val: 'days' | 'weeks' | 'years') => void;
   onIntervalChange: (val: number) => void;
   onDaysOfWeekChange: (val: DayOfWeek[]) => void;
   onEndsTypeChange: (val: 'never' | 'on_date' | 'after_occurrences') => void;
@@ -205,7 +207,7 @@ function CustomRuleBuilder({
           style={{ width: 52, textAlign: 'center', padding: '4px 6px', fontSize: 12 }}
         />
         <div style={{ display: 'flex', background: 'var(--bg-subtle)', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
-          {(['days', 'weeks'] as const).map((u) => (
+          {(['days', 'weeks', 'years'] as const).map((u) => (
             <button
               key={u}
               type="button"
@@ -447,9 +449,11 @@ export function TaskModal({
   const [recurrenceEndsAfter, setRecurrenceEndsAfter] = useState(
     parseEndsAfter(task?.recurrenceRule?.ends),
   );
-  const [customUnit, setCustomUnit] = useState<'days' | 'weeks'>(
-    (task?.recurrenceRule?.days_of_week?.length ?? 0) > 0 ? 'weeks' : 'days',
-  );
+  const [customUnit, setCustomUnit] = useState<'days' | 'weeks' | 'years'>(() => {
+    if (task?.recurrenceRule?.frequency === 'yearly' && (task.recurrenceRule.interval ?? 1) > 1) return 'years';
+    if ((task?.recurrenceRule?.days_of_week?.length ?? 0) > 0) return 'weeks';
+    return 'days';
+  });
 
   // For recurring edit scope prompt
   const [recurringEditScope, setRecurringEditScope] = useState<
@@ -489,11 +493,11 @@ export function TaskModal({
 
   // Sync recurrence state into formValues for dirty checking
   useEffect(() => {
-    const effectiveDays = recurrenceFrequency === 'custom' && customUnit === 'days' ? [] : recurrenceDaysOfWeek;
+    const effectiveDays = recurrenceFrequency === 'custom' && (customUnit === 'days' || customUnit === 'years') ? [] : recurrenceDaysOfWeek;
     const isRec = recurrenceFrequency !== 'one_time' && !!formValues.date;
     const rule = isRec
       ? buildRecurrenceRule(
-          recurrenceFrequency,
+          recurrenceFrequency === 'custom' && customUnit === 'years' ? 'yearly' : recurrenceFrequency,
           recurrenceInterval,
           effectiveDays,
           recurrenceDayOfMonth,
@@ -545,9 +549,9 @@ export function TaskModal({
   }, [formValues, onClose]);
 
   function getFrequencyLabelFromState(): string {
-    const effectiveDays = recurrenceFrequency === 'custom' && customUnit === 'days' ? [] : recurrenceDaysOfWeek;
+    const effectiveDays = recurrenceFrequency === 'custom' && (customUnit === 'days' || customUnit === 'years') ? [] : recurrenceDaysOfWeek;
     const rule = buildRecurrenceRule(
-      recurrenceFrequency,
+      recurrenceFrequency === 'custom' && customUnit === 'years' ? 'yearly' : recurrenceFrequency,
       recurrenceInterval,
       effectiveDays,
       recurrenceDayOfMonth,
@@ -562,9 +566,9 @@ export function TaskModal({
 
   const handleSave = useCallback(
     (scope?: 'this_occurrence' | 'all_future') => {
-      const effectiveDays = recurrenceFrequency === 'custom' && customUnit === 'days' ? [] : recurrenceDaysOfWeek;
+      const effectiveDays = recurrenceFrequency === 'custom' && (customUnit === 'days' || customUnit === 'years') ? [] : recurrenceDaysOfWeek;
       const currentRule = buildRecurrenceRule(
-        recurrenceFrequency,
+        recurrenceFrequency === 'custom' && customUnit === 'years' ? 'yearly' : recurrenceFrequency,
         recurrenceInterval,
         effectiveDays,
         recurrenceDayOfMonth,
