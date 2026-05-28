@@ -404,7 +404,7 @@ export function BoardClient({ initialTasks, initialBacklogTasks, projects }: Boa
   const today = getTodayString();
   const filtered = filtersLoaded ? applyFilters(optimisticTasks, filters) : optimisticTasks;
   const columns = buildBoardColumns(filtered, today);
-  const laterTasks = initialBacklogTasks.filter((task) => task.date !== today);
+  const laterTasks = initialBacklogTasks.filter((task) => task.date === null);
   const backlogCount = laterTasks.length;
 
   const activeTask = activeId !== null
