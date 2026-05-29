@@ -293,6 +293,31 @@ export async function advanceNewDayTasks(): Promise<void> {
       .where(eq(tasks.id, task.id));
   }
 
+  // Roll over non-recurring, non-appointment tasks with a past date that were not completed.
+  // Recurring masters and exception records are already handled above.
+  const pastDateTasks = await db
+    .select({ id: tasks.id })
+    .from(tasks)
+    .where(
+      and(
+        eq(tasks.isArchived, false),
+        ne(tasks.status, 'done'),
+        eq(tasks.isRecurring, false),
+        isNull(tasks.recurringMasterId),
+        isNull(tasks.startAt),
+        isNotNull(tasks.date),
+        lt(tasks.date, dateToString(today)),
+      ),
+    );
+
+  const todayString = dateToString(today);
+  for (const task of pastDateTasks) {
+    await db
+      .update(tasks)
+      .set({ date: todayString, updatedAt: new Date() })
+      .where(eq(tasks.id, task.id));
+  }
+
   revalidateAll();
   } catch (err) {
     console.error('[advanceNewDayTasks]', err);
